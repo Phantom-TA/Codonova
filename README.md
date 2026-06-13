@@ -1,6 +1,6 @@
 # Codonova 🤖
 
-**Autonomous Software Development System** powered by deep AI agents, a Neo4j knowledge graph, ChromaDB memory, and a real-time React dashboard.
+**Autonomous Software Development System** powered by deep AI agents,a Neo4j knowledge graph, ChromaDB memory, and a real-time React dashboard.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green?logo=fastapi)](https://fastapi.tiangolo.com)
