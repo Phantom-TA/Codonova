@@ -59,6 +59,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from plan_editor import router as plan_editor_router, ensure_executable
+app.include_router(plan_editor_router)
+
 GENERATED_CODE_DIR = Path(os.getenv("GENERATED_CODE_DIR", "./generated_code"))
 GENERATED_CODE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -270,7 +273,10 @@ async def execute_pipeline(project_id: str, background_tasks: BackgroundTasks):
         res = query_graph("MATCH (p:Project {id: $pid}) RETURN p.status AS status", {"pid": project_id})
         if not res:
             raise HTTPException(status_code=404, detail="Project not found")
-            
+        if res[0].get("status") == "RUNNING":
+            raise HTTPException(status_code=409, detail="Pipeline is already running for this project")
+        ensure_executable(project_id)
+
         # Update status to RUNNING
         query_graph("MATCH (p:Project {id: $pid}) SET p.status = 'RUNNING'", {"pid": project_id})
         
@@ -284,6 +290,8 @@ async def execute_pipeline(project_id: str, background_tasks: BackgroundTasks):
         }))
         
         return {"status": "RUNNING", "project_id": project_id}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Pipeline execution failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
