@@ -243,7 +243,7 @@ def get_plan(project_id: str):
         """
         MATCH (:Project {id: $pid})-[:HAS_FEATURE]->(f:Feature)-[:HAS_TASK]->(t:Task)
         OPTIONAL MATCH (t)-[:DEPENDS_ON]->(d:Task)
-        RETURN t.id AS id, f.id AS feature_id, t.title AS title,
+        RETURN t.id AS id, f.id AS feature_id, t.title AS title, t.file AS file,
                t.description AS description, coalesce(t.type, 'CODE') AS type,
                coalesce(t.priority, 5) AS priority, t.status AS status,
                collect(d.id) AS depends_on

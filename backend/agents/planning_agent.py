@@ -8,6 +8,7 @@ Uses Gemini 2.5 Flash (reasoning) for two-stage LLM decomposition:
 All task data is stored into Neo4j as a graph.
 """
 
+import re
 import json
 import uuid
 import logging
@@ -45,15 +46,15 @@ Rules:
 - ALWAYS include one feature for "Static HTML/JS Frontend".
 - Do not over-engineer."""
 
-    TASK_DECOMPOSITION_SYSTEM = """Break a software feature into development tasks.
+    TASK_DECOMPOSITION_SYSTEM = """Break a software feature into development tasks. The app is a Node.js/Express backend plus a static HTML/CSS/JS frontend.
 Return JSON only:
 {
   "tasks": [
     {
       "id": "t1",
-      "feature_id": "f1",
       "title": "Task title",
       "description": "One sentence describing what to build",
+      "file": "server.js",
       "type": "CODE",
       "priority": 1,
       "depends_on": []
@@ -61,12 +62,12 @@ Return JSON only:
   ]
 }
 Rules:
-- type must be CODE or TEST
-- 1-3 tasks per feature max to save tokens and prevent failure.
-- Group logic into single files (e.g. models and routes in one file) to minimize file count.
-- ALWAYS include a task to generate an `index.html` frontend that interacts with the API.
-- Each task = one file. No subtasks.
-- depends_on: list task ids this needs first"""
+- type is always CODE.
+- Each task writes exactly ONE file, named in "file". No two tasks may use the same file.
+- Backend features may only use these files: server.js, lib/<name>.js. Keep routes and in-memory data in server.js unless the feature is large.
+- Frontend features may only use these files: public/index.html, public/styles.css, public/app.js (at most one task per file).
+- 1-3 tasks per feature. Keep it small.
+- depends_on: ids of tasks in THIS feature that must be finished first (for example public/app.js depends on public/index.html)."""
 
     API_SCHEMA_SYSTEM = """Given a list of task descriptions for a software project, define the REST API the backend will expose. The frontend and the backend are written separately, so the contract must state the exact JSON shapes.
 Return JSON only:
@@ -164,6 +165,10 @@ Rules:
 
         for i, feature in enumerate(features):
             logger.info(f"Decomposing Feature {i+1}/{len(features)}: {feature.get('title')}")
+            is_frontend = any(
+                k in f"{feature.get('title', '')} {feature.get('description', '')}".lower()
+                for k in ("frontend", "front-end", "html", "user interface", " ui", "page")
+            )
             
             messages = [
                 {"role": "system", "content": self.TASK_DECOMPOSITION_SYSTEM},
@@ -171,8 +176,9 @@ Rules:
                     "role": "user",
                     "content": (
                         f"Feature: {feature.get('title')}\n"
-                        f"Description: {feature.get('description')}\n\n"
-                        "Break this into 3-6 tasks (CODE type only, no TEST tasks). "
+                        f"Description: {feature.get('description')}\n"
+                        f"Kind: {'FRONTEND feature - use only the public/ files' if is_frontend else 'BACKEND feature - use only server.js and lib/ files'}\n\n"
+                        "Break this into tasks (CODE type only, no TEST tasks). "
                         "Each task = one file. Be brief."
                     ),
                 },
@@ -191,6 +197,7 @@ Rules:
                 local_ids = {t.get("id") for t in feature_tasks}
                 for n, task in enumerate(feature_tasks):
                     task["feature_id"] = fid
+                    task["file"] = self._clean_file(task.get("file"), is_frontend)
                     task["id"] = f"{fid}.{task.get('id') or f't{n + 1}'}"
                     task["depends_on"] = [
                         f"{fid}.{d}" for d in (task.get("depends_on") or []) if d in local_ids
@@ -203,8 +210,46 @@ Rules:
                 logger.debug(f"Raw response: {raw[:500]}...")
                 continue
 
+        all_tasks = self._drop_duplicate_files(all_tasks)
         logger.info(f"Total decomposition results: {len(all_tasks)} tasks.")
         return {"tasks": all_tasks}
+
+    FRONTEND_FILES = {"public/index.html", "public/styles.css", "public/app.js"}
+
+    @classmethod
+    def _clean_file(cls, path, frontend: bool):
+        """Accept only the file names the project layout allows (None = let the developer decide)."""
+        if not isinstance(path, str):
+            return None
+        p = path.strip().replace("\\", "/")
+        while p.startswith("./"):
+            p = p[2:]
+        if frontend:
+            return p if p in cls.FRONTEND_FILES else None
+        return p if p == "server.js" or re.fullmatch(r"lib/[\w\-]+\.js", p) else None
+
+    @staticmethod
+    def _drop_duplicate_files(tasks: list) -> list:
+        """
+        Two tasks writing the same file overwrite each other (that is how a page ended up
+        without its app.js). Keep the first task per file and point dependencies at it.
+        """
+        owner: dict[str, str] = {}
+        replaced: dict[str, str] = {}
+        kept = []
+        for task in tasks:
+            f = task.get("file")
+            if f and f in owner:
+                replaced[task["id"]] = owner[f]
+                logger.info(f"Dropped duplicate task for {f}: {task.get('title')}")
+                continue
+            if f:
+                owner[f] = task["id"]
+            kept.append(task)
+        for task in kept:
+            deps = [replaced.get(d, d) for d in task.get("depends_on", [])]
+            task["depends_on"] = [d for i, d in enumerate(deps) if d != task["id"] and d not in deps[:i]]
+        return kept
 
     def _extract_api_schema(self, features_data: dict, tasks_data: dict) -> dict:
         """Lightweight Call 3: extract all REST endpoints from the planned tasks."""
@@ -281,6 +326,7 @@ Rules:
                 "title": task.get("title", ""),
                 "description": task.get("description", ""),
                 "type": task.get("type", "CODE"),
+                "file": task.get("file") or "",
                 "status": "PENDING",
                 "priority": task.get("priority", 5),
                 "feature_logical_id": task.get("feature_id", ""),

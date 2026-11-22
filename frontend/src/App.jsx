@@ -229,9 +229,9 @@ function ProjectSelector({ activeProjectId, onSelect }) {
   if (projects.length === 0) return null
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
       <div className="text-xs text-slate-500 px-1">Recent Projects</div>
-      {projects.slice(0, 6).map(p => (
+      {projects.slice(0, 30).map(p => (
         <button
           key={p.id}
           onClick={() => onSelect(p.id)}

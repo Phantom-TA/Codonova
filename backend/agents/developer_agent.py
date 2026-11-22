@@ -193,6 +193,8 @@ class DeveloperAgent:
             f"Description: {task_node.get('description', '')}\n"
             f"Feature: {context.get('feature_title', 'N/A')}"
         )
+        if task_node.get("file"):
+            user_content += f"\nFile to write: {task_node['file']}  (use exactly this path as \"filename\")"
 
         if similar_examples:
             eg = similar_examples[0]
@@ -226,7 +228,8 @@ class DeveloperAgent:
 
     def _write_code(self, task_node: dict, result: dict, version: int = 1) -> Path:
         """Write generated code to the project-specific filesystem folder."""
-        filename = result.get("filename") or f"module_{task_node['id'][:8]}.js"
+        # The planner assigns each task its own file; trust it over what the model returns.
+        filename = task_node.get("file") or result.get("filename") or f"module_{task_node['id'][:8]}.js"
         project_id = task_node.get("project_id", "default_project")
 
         # Sanitize filename

@@ -231,6 +231,9 @@ function FeatureCard({ feature, projectId, features, allTasks, editable, run, ex
                   P{task.priority}
                 </span>
                 <span className="flex-1 min-w-0 text-sm text-slate-200 truncate">{task.title}</span>
+                {task.file && (
+                  <span className="text-[10px] font-mono text-slate-500 flex-shrink-0">{task.file}</span>
+                )}
                 {task.depends_on.length > 0 && (
                   <span className="text-[10px] text-brand-300 flex-shrink-0">
                     ⛓ {task.depends_on.length} dep{task.depends_on.length > 1 ? 's' : ''}
