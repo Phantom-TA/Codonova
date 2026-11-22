@@ -77,3 +77,6 @@ ppt
 
 # benchmark output
 benchmark_results.csv
+
+# slide preview exports
+docs/deck_preview/
