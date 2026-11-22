@@ -273,26 +273,36 @@ function ApiContract({ projectId, schema, editable, run }) {
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-500">
-        The Developer Agent must follow this contract exactly. Backend tasks implement every endpoint and
-        the frontend calls only these.
+        The Developer Agent must follow this contract exactly. The backend returns these exact JSON shapes and
+        the frontend reads those exact field names.
       </p>
       <div className="space-y-2">
         {rows.length === 0 && <p className="text-xs text-slate-600">No endpoints defined.</p>}
         {rows.map((r, i) => (
-          <div key={i} className="grid grid-cols-[95px_1fr_1.2fr_auto] gap-2 items-center">
-            <select className={inputCls + ' font-mono ' + (METHOD_COLOR[r.method] || '')}
-                    value={r.method} disabled={!editable}
-                    onChange={e => update(i, { method: e.target.value })}>
-              {METHODS.map(m => <option key={m}>{m}</option>)}
-            </select>
-            <input className={inputCls + ' font-mono'} value={r.path} disabled={!editable}
-                   placeholder="/api/items" onChange={e => update(i, { path: e.target.value })} />
-            <input className={inputCls} value={r.description || ''} disabled={!editable}
-                   placeholder="What it does" onChange={e => update(i, { description: e.target.value })} />
-            {editable && (
-              <button className="text-slate-600 hover:text-red-400 px-2" title="Remove"
-                      onClick={() => setRows(rows.filter((_, j) => j !== i))}>×</button>
-            )}
+          <div key={i} className="rounded-lg border border-white/5 bg-white/[0.02] p-2.5 space-y-2">
+            <div className="grid grid-cols-[95px_1fr_1.2fr_auto] gap-2 items-center">
+              <select className={inputCls + ' font-mono ' + (METHOD_COLOR[r.method] || '')}
+                      value={r.method} disabled={!editable}
+                      onChange={e => update(i, { method: e.target.value })}>
+                {METHODS.map(m => <option key={m}>{m}</option>)}
+              </select>
+              <input className={inputCls + ' font-mono'} value={r.path} disabled={!editable}
+                     placeholder="/api/items" onChange={e => update(i, { path: e.target.value })} />
+              <input className={inputCls} value={r.description || ''} disabled={!editable}
+                     placeholder="What it does" onChange={e => update(i, { description: e.target.value })} />
+              {editable && (
+                <button className="text-slate-600 hover:text-red-400 px-2" title="Remove"
+                        onClick={() => setRows(rows.filter((_, j) => j !== i))}>×</button>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input className={inputCls + ' font-mono text-xs'} value={r.request || ''} disabled={!editable}
+                     placeholder='request body, e.g. {"name": "Ana"}'
+                     onChange={e => update(i, { request: e.target.value })} />
+              <input className={inputCls + ' font-mono text-xs'} value={r.response || ''} disabled={!editable}
+                     placeholder='response JSON, e.g. {"count": 0}'
+                     onChange={e => update(i, { response: e.target.value })} />
+            </div>
           </div>
         ))}
       </div>

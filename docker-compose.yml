@@ -60,6 +60,7 @@ services:
     container_name: codonova_backend
     ports:
       - "8000:8000"
+      - "4100-4110:4100-4110"   # live preview of generated apps
     env_file:
       - .env
     environment:
@@ -69,6 +70,7 @@ services:
     volumes:
       - ./backend:/app
       - ./generated_code:/app/generated_code
+      - model_cache:/root/.cache   # embedding model, so rebuilds don't re-download 80 MB
     depends_on:
       neo4j:
         condition: service_started
@@ -110,6 +112,7 @@ volumes:
   neo4j_logs:
   neo4j_plugins:
   chroma_data:
+  model_cache:
 
 networks:
   default:

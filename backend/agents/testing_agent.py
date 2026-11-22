@@ -186,16 +186,20 @@ class TestingAgent:
         return test_filepath
 
     def _ensure_npm_env(self, project_id: str):
-        project_dir = GENERATED_CODE_DIR / project_id
-        pkg_json = project_dir / "package.json"
-        if not pkg_json.exists():
-            pkg_json.write_text('{"name": "codonova-project", "scripts": {"test": "jest"}}')
+        """Install the packages the generated code and tests import (express, supertest, ...)."""
+        from project_runtime import npm_install, project_dir
+        ok, msg = npm_install(project_dir(project_id), log=lambda line: logger.debug(f"npm: {line}"))
+        if not ok:
+            logger.warning(f"npm install failed for project {project_id}: {msg}")
 
     @traceable(name="jest_run", run_type="tool")
     def _run_tests(self, test_filepath: Path, project_id: str) -> dict:
         """Execute jest and parse results."""
+        # Absolute paths: jest runs with cwd=project_dir, so a relative GENERATED_CODE_DIR
+        # would be resolved a second time and the JSON report could never be written.
+        test_filepath = test_filepath.resolve()
         report_file = test_filepath.parent / f".report_{test_filepath.stem}.json"
-        project_dir = GENERATED_CODE_DIR / project_id
+        project_dir = (GENERATED_CODE_DIR / project_id).resolve()
 
         # Use 'npx --yes jest' to bypass the install prompt if jest is missing locally
         cmd = [

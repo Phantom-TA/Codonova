@@ -68,20 +68,21 @@ Rules:
 - Each task = one file. No subtasks.
 - depends_on: list task ids this needs first"""
 
-    API_SCHEMA_SYSTEM = """Given a list of task descriptions for a software project, extract all REST API endpoints the backend will expose.
+    API_SCHEMA_SYSTEM = """Given a list of task descriptions for a software project, define the REST API the backend will expose. The frontend and the backend are written separately, so the contract must state the exact JSON shapes.
 Return JSON only:
 {
   "endpoints": [
-    {"method": "GET",  "path": "/api/students",     "description": "List all students"},
-    {"method": "POST", "path": "/api/students",     "description": "Register a student"},
-    {"method": "POST", "path": "/api/marks",        "description": "Add marks for a student"},
-    {"method": "GET",  "path": "/api/statistics",   "description": "Class statistics"}
+    {"method": "GET",  "path": "/api/students", "description": "List all students",
+     "request": "", "response": "[{\"id\": 1, \"name\": \"Ana\"}]"},
+    {"method": "POST", "path": "/api/students", "description": "Register a student",
+     "request": "{\"name\": \"Ana\"}", "response": "{\"id\": 1, \"name\": \"Ana\"}"}
   ],
   "base_port": 4000
 }
 Rules:
 - Only list backend REST endpoints (not HTML pages).
 - Be complete - the frontend will use EXACTLY these endpoints.
+- "request" is an example JSON body ("" when there is none); "response" is an example of the exact JSON returned. Use real field names and keep them consistent across endpoints.
 - base_port is always 4000."""
 
     # ─── Core Methods ─────────────────────────────────────────────────────────

@@ -70,6 +70,8 @@ class Endpoint(BaseModel):
     method: str
     path: str = Field(..., min_length=1, max_length=200)
     description: str = Field("", max_length=500)
+    request: str = Field("", max_length=1000)    # example JSON body
+    response: str = Field("", max_length=1000)   # example JSON response
 
 
 class ApiSchemaBody(BaseModel):
@@ -533,7 +535,10 @@ def write_api_schema(project_id: str, body: ApiSchemaBody):
         if (method, path) in seen:
             raise HTTPException(status_code=400, detail=f"Duplicate endpoint: {method} {path}")
         seen.add((method, path))
-        endpoints.append({"method": method, "path": path, "description": ep.description.strip()})
+        endpoints.append({
+            "method": method, "path": path, "description": ep.description.strip(),
+            "request": ep.request.strip(), "response": ep.response.strip(),
+        })
 
     before = get_api_schema(project_id)
     schema = {"endpoints": endpoints, "base_port": body.base_port}

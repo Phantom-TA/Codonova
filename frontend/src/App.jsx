@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import TaskGraph from './components/TaskGraph.jsx'
 import PlanReview from './components/PlanReview.jsx'
+import LivePreview from './components/LivePreview.jsx'
 import AgentFeed from './components/AgentFeed.jsx'
 import CodeViewer from './components/CodeViewer.jsx'
 import EvalChart from './components/EvalChart.jsx'
@@ -13,6 +14,7 @@ const PANELS = [
   { id: 'plan',      label: 'Plan Review',      component: PlanReview },
   { id: 'feed',      label: 'Agent Feed',       component: AgentFeed },
   { id: 'code',      label: 'Code Viewer',      component: CodeViewer },
+  { id: 'preview',   label: 'Live Preview',     component: LivePreview },
   { id: 'analytics', label: 'Agent Analytics',  component: AgentAnalytics },
   { id: 'eval',      label: 'Evaluations',      component: EvalChart },
   { id: 'insights',  label: 'Insights',         component: InsightsPanel },
@@ -28,7 +30,7 @@ const STATUS_COLOR = {
 }
 
 // ─── Project Status Bar ────────────────────────────────────────────────────
-function ProjectStatusBar({ status, projectId }) {
+function ProjectStatusBar({ status, projectId, onRunApp }) {
   if (!status) return null
   const pct = status.progress_pct || 0
   const color = STATUS_COLOR[status.status] || '#64748b'
@@ -67,6 +69,14 @@ function ProjectStatusBar({ status, projectId }) {
           className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold whitespace-nowrap transition-all shadow-[0_0_15px_rgba(139,92,246,0.3)] flex items-center gap-2 flex-shrink-0"
         >
           🚀 Approve Plan & Implement
+        </button>
+      )}
+      {String(status.status || '').startsWith('COMPLETED') && (
+        <button
+          onClick={onRunApp}
+          className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 flex-shrink-0"
+        >
+          ▶ Run App
         </button>
       )}
       <div className="flex gap-3 text-xs text-slate-500 flex-shrink-0">
@@ -450,7 +460,14 @@ export default function App() {
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
             {/* Project status bar */}
             {projectStatus && (
-              <ProjectStatusBar status={projectStatus} projectId={projectId} />
+              <ProjectStatusBar
+                status={projectStatus}
+                projectId={projectId}
+                onRunApp={() => {
+                  setActivePanel('preview')
+                  fetch(`/api/preview/${projectId}/start`, { method: 'POST' }).catch(() => {})
+                }}
+              />
             )}
 
             {/* Active panel */}
