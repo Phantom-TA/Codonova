@@ -269,6 +269,32 @@ export default function App() {
       .catch(() => setTracing(null))
   }, [])
 
+  // Native desktop notifications (only inside the Electron app, where window.codonova exists)
+  useEffect(() => {
+    if (!window.codonova?.isDesktop) return
+    let ws
+    let timer
+    let closed = false
+    const connect = () => {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+      ws = new WebSocket(`${proto}://${window.location.host}/ws/progress`)
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.event === 'project_complete') {
+            window.codonova.notify(
+              'Project complete',
+              `Project ${String(msg.project_id || '').slice(0, 8)} finished. Open Live Preview to run it.`
+            )
+          }
+        } catch { /* ignore non-JSON frames */ }
+      }
+      ws.onclose = () => { if (!closed) timer = setTimeout(connect, 3000) }
+    }
+    connect()
+    return () => { closed = true; clearTimeout(timer); if (ws) ws.close() }
+  }, [])
+
   // Fetch project status periodically
   useEffect(() => {
     if (!projectId) return
