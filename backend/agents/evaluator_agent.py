@@ -73,12 +73,8 @@ class EvaluatorAgent:
         # Store in Neo4j
         eval_id = self._store_eval_result(task_id, context.get("module_id"), eval_result)
 
-        update_agent_profile(
-            self.AGENT_NAME,
-            score=9.0,
-            task_type="EVAL",
-            retries=0,
-        )
+        # The evaluator has no objective score of its own (it scores the others).
+        update_agent_profile(self.AGENT_NAME, score=None, task_type="EVAL", retries=0)
 
         return {
             **eval_result,

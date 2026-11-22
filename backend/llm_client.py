@@ -70,7 +70,9 @@ def _preload_from_neo4j():
 threading.Thread(target=_preload_from_neo4j, daemon=True).start()
 
 
-def _log_call(model_tier: str, model: str, latency_ms: float, tokens: int | None, success: bool):
+def _log_call(model_tier: str, model: str, latency_ms: float, tokens: int | None, success: bool,
+              failed_attempts: int = 0, quota_errors: int = 0, overload_errors: int = 0,
+              fallback_used: bool = False):
     entry = {
         "timestamp":   datetime.utcnow().isoformat(),
         "agent_type":  _active_agent.get(),   # named agent: PlanningAgent, DeveloperAgent...
@@ -80,6 +82,11 @@ def _log_call(model_tier: str, model: str, latency_ms: float, tokens: int | None
         "tokens_used": tokens,
         "success":     success,
         "project_id":  _active_project.get(),
+        # API errors that were absorbed (key/model rotation) before this call finished
+        "failed_attempts": failed_attempts,
+        "quota_errors":    quota_errors,
+        "overload_errors": overload_errors,
+        "fallback_used":   fallback_used,
     }
     call_log.append(entry)
     logger.info(
@@ -214,6 +221,7 @@ def llm_call(
         or list(range(len(models)))
 
     last_error: Exception | None = None
+    quota_errors = overload_errors = 0
     for model_index in order:
         for key_offset in range(key_count):
             client, model = get_client(agent_type, key_offset, model_index)
@@ -223,7 +231,10 @@ def llm_call(
                 response = client.chat.completions.create(**kwargs)
                 latency_ms = (time.time() - start_time) * 1000
                 tokens = getattr(response.usage, "total_tokens", None)
-                _log_call(agent_type, model, latency_ms, tokens, success=True)
+                _log_call(agent_type, model, latency_ms, tokens, success=True,
+                          failed_attempts=quota_errors + overload_errors,
+                          quota_errors=quota_errors, overload_errors=overload_errors,
+                          fallback_used=(model != models[0]))
 
                 global gemini_key_index, groq_key_index
                 if provider == "gemini" and key_offset > 0:
@@ -254,8 +265,10 @@ def llm_call(
 
                 last_error = e
                 if is_quota:
+                    quota_errors += 1
                     _model_cooldown[model] = time.time() + QUOTA_COOLDOWN_S
                 elif is_overload:
+                    overload_errors += 1
                     _model_cooldown[model] = time.time() + OVERLOAD_COOLDOWN_S
                 logger.warning(
                     f"Retryable error for {model} (key {key_offset + 1}/{key_count}): "
@@ -265,7 +278,9 @@ def llm_call(
                 # rotating keys; once keys are used up the outer loop moves to the next model.
 
     # Every Gemini/Groq model and key failed: fall back to OpenRouter (if configured)
-    _log_call(agent_type, models[order[-1]], (time.time() - start_time) * 1000, None, success=False)
+    _log_call(agent_type, models[order[-1]], (time.time() - start_time) * 1000, None, success=False,
+              failed_attempts=quota_errors + overload_errors,
+              quota_errors=quota_errors, overload_errors=overload_errors)
 
     fb_key = os.getenv("OPENROUTER_API_KEY", "").strip()
     if not fb_key or fb_key.startswith("your_"):
@@ -282,7 +297,9 @@ def llm_call(
         fb_response = fallback_client.chat.completions.create(**kwargs)
         latency_ms = (time.time() - fb_start) * 1000
         tokens = getattr(fb_response.usage, "total_tokens", None)
-        _log_call(agent_type, fallback_model, latency_ms, tokens, success=True)
+        _log_call(agent_type, fallback_model, latency_ms, tokens, success=True,
+                  failed_attempts=quota_errors + overload_errors,
+                  quota_errors=quota_errors, overload_errors=overload_errors, fallback_used=True)
         return fb_response.choices[0].message.content
     except Exception as fb_e:
         latency_ms = (time.time() - fb_start) * 1000

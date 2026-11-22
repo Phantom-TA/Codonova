@@ -94,7 +94,7 @@ class TestingAgent:
             logger.info(f"Skipping Jest test for frontend file: {filepath}")
             from graph.neo4j_client import mark_task_status
             mark_task_status(task_id, "DONE")
-            update_agent_profile(self.AGENT_NAME, score=8.5, task_type="TEST", retries=0)
+            update_agent_profile(self.AGENT_NAME, score=None, task_type="TEST", retries=0)  # nothing was tested
             return {
                 "success": True,
                 "task_id": task_id,
@@ -120,9 +120,11 @@ class TestingAgent:
         # Store in Neo4j
         self._store_results(task_id, code_module["id"], test_result, run_results, test_filepath)
 
+        # Real score: share of the generated tests that passed, on a 0-10 scale.
+        executed = run_results["passed"] + run_results["failed"]
         update_agent_profile(
             self.AGENT_NAME,
-            score=9.0 if run_results["all_passed"] else (8.5 if run_results.get("skipped") else 4.0),
+            score=round(10 * run_results["passed"] / executed, 1) if executed else 0.0,
             task_type="TEST",
             retries=0,
         )

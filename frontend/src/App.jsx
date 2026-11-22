@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import TaskGraph from './components/TaskGraph.jsx'
 import PlanReview from './components/PlanReview.jsx'
 import LivePreview from './components/LivePreview.jsx'
+import RunReport from './components/RunReport.jsx'
 import AgentFeed from './components/AgentFeed.jsx'
 import CodeViewer from './components/CodeViewer.jsx'
 import EvalChart from './components/EvalChart.jsx'
@@ -15,6 +16,7 @@ const PANELS = [
   { id: 'feed',      label: 'Agent Feed',       component: AgentFeed },
   { id: 'code',      label: 'Code Viewer',      component: CodeViewer },
   { id: 'preview',   label: 'Live Preview',     component: LivePreview },
+  { id: 'report',    label: 'Run Report',       component: RunReport },
   { id: 'analytics', label: 'Agent Analytics',  component: AgentAnalytics },
   { id: 'eval',      label: 'Evaluations',      component: EvalChart },
   { id: 'insights',  label: 'Insights',         component: InsightsPanel },

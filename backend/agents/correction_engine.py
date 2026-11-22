@@ -20,7 +20,7 @@ from .evaluator_agent import EvaluatorAgent
 from .debugging_agent import DebuggingAgent
 from graph.neo4j_client import (
     query_graph, block_dependent_tasks, create_node, link_nodes,
-    mark_task_status
+    mark_task_status, update_agent_profile
 )
 from memory.memory_store import MemoryStore
 from tracing import traceable, annotate
@@ -102,6 +102,10 @@ class CorrectionEngine:
 
             logger.info(f"Attempt {attempts}: score={score}, passed={score >= PASS_SCORE}")
 
+            # The developer's quality is the evaluator's score for what it wrote (one entry per attempt).
+            update_agent_profile("DeveloperAgent", score=score, task_type="CODE",
+                                 retries=0 if attempts == 1 else 1)
+
             if score >= PASS_SCORE:
                 # ✅ Success — store in memory
                 await asyncio.to_thread(
@@ -112,9 +116,6 @@ class CorrectionEngine:
                     task_id=task_id,
                     module_id=dev_result.get("code_module_id", ""),
                 )
-                # Record actual retry count in Neo4j
-                from graph.neo4j_client import update_agent_profile
-                update_agent_profile("DeveloperAgent", score=score, task_type="CODE", retries=attempts - 1)
                 mark_task_status(task_id, "DONE")
                 await self._emit("task_done", task_id=task_id, score=score, agent="Pipeline")
                 return {

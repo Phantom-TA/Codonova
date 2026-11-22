@@ -12,7 +12,7 @@ import json
 import uuid
 import logging
 from datetime import datetime
-from llm_client import llm_call, parse_json_response, set_active_agent
+from llm_client import llm_call, parse_json_response, set_active_agent, set_active_project
 from tracing import traceable
 from graph.neo4j_client import (
     create_node, link_nodes, query_graph, upsert_agent, update_agent_profile,
@@ -101,6 +101,9 @@ Rules:
         logger.info(f"PlanningAgent starting for requirement: {requirement[:100]}...")
         upsert_agent(self.AGENT_NAME)
         set_active_agent(self.AGENT_NAME)
+        # Create the project id up front so every planning LLM call is attributed to it.
+        project_id = str(uuid.uuid4())
+        set_active_project(project_id)
 
         start_time = datetime.utcnow()
 
@@ -114,7 +117,7 @@ Rules:
         api_schema = self._extract_api_schema(features_data, tasks_data)
 
         # Step 4: Store everything in Neo4j
-        project_id = self._store_in_graph(requirement, features_data, tasks_data, api_schema)
+        self._store_in_graph(requirement, features_data, tasks_data, api_schema, project_id)
 
         elapsed = (datetime.utcnow() - start_time).total_seconds()
         logger.info(
@@ -124,7 +127,7 @@ Rules:
             f"elapsed={elapsed:.1f}s"
         )
 
-        update_agent_profile(self.AGENT_NAME, score=9.0, task_type="PLAN", retries=0)
+        update_agent_profile(self.AGENT_NAME, score=None, task_type="PLAN", retries=0)  # no objective score
 
         return {
             "project_id": project_id,
@@ -221,10 +224,11 @@ Rules:
         return schema
 
     def _store_in_graph(
-        self, requirement: str, features_data: dict, tasks_data: dict, api_schema: dict = None
+        self, requirement: str, features_data: dict, tasks_data: dict, api_schema: dict = None,
+        project_id: str | None = None,
     ) -> str:
         """Store the full plan into Neo4j and return the project_id."""
-        project_id = str(uuid.uuid4())
+        project_id = project_id or str(uuid.uuid4())
 
         # Create Project node
         create_node("Project", {

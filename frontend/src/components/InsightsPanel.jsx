@@ -117,7 +117,7 @@ export default function InsightsPanel() {
   const totalTasks = agents.reduce((s, a) => s + (a.tasks || 0), 0)
   const totalRetries = agents.reduce((s, a) => s + (a.retries || 0), 0)
   const avgScore = agents.length
-    ? (agents.reduce((s, a) => s + (a.avg_score || 0), 0) / agents.length).toFixed(1)
+    ? (agents.filter(a => a.avg_score != null).reduce((s, a) => s + a.avg_score, 0) / Math.max(1, agents.filter(a => a.avg_score != null).length)).toFixed(1)
     : 'N/A'
 
   return (
@@ -136,7 +136,7 @@ export default function InsightsPanel() {
         rows={agents}
         columns={[
           { key: 'agent', primary: true },
-          { key: 'avg_score', format: v => `${(v || 0).toFixed(1)}/10` },
+          { key: 'avg_score', format: v => (v == null ? '—' : `${v.toFixed(1)}/10`) },
           { key: 'retry_rate', format: v => `${((v || 0) * 100).toFixed(0)}% retry` },
         ]}
         emptyMsg="No agent data yet"

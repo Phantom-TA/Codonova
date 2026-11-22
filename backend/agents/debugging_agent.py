@@ -54,7 +54,7 @@ class DebuggingAgent:
         if not context:
             logger.warning(f"Cannot debug task {task_id}: insufficient context")
             # Still record the attempt so score isn't zero
-            update_agent_profile(self.AGENT_NAME, score=5.0, task_type="DEBUG", retries=0)
+            update_agent_profile(self.AGENT_NAME, score=None, task_type="DEBUG", retries=0)
             return {"success": False, "reason": "Insufficient debug context"}
 
         # Single call: root cause + fix together
@@ -67,8 +67,8 @@ class DebuggingAgent:
             task_id, context, debug_result, fixed_filepath
         )
 
-        score = 8.5 if fix_success else 5.5
-        update_agent_profile(self.AGENT_NAME, score=score, task_type="DEBUG", retries=0)
+        # Whether the fix actually worked is only known after the next test run.
+        update_agent_profile(self.AGENT_NAME, score=None, task_type="DEBUG", retries=0)
 
         return {
             "success": True,

@@ -61,8 +61,10 @@ app.add_middleware(
 
 from plan_editor import router as plan_editor_router, ensure_executable
 import preview_manager
+import run_report
 app.include_router(plan_editor_router)
 app.include_router(preview_manager.router)
+app.include_router(run_report.router)
 
 GENERATED_CODE_DIR = Path(os.getenv("GENERATED_CODE_DIR", "./generated_code"))
 GENERATED_CODE_DIR.mkdir(parents=True, exist_ok=True)
@@ -669,6 +671,12 @@ async def export_project(project_id: str):
 
             # README.md
             zf.writestr("README.md", _generate_readme(title, description, files, evaluations))
+
+            # RUN_REPORT.md: real metrics of this run
+            try:
+                zf.writestr("RUN_REPORT.md", run_report.render_markdown(run_report.build_report(project_id)))
+            except Exception as exc:
+                logger.warning(f"Could not add run report to export: {exc}")
 
             # test_report.json
             zf.writestr("test_report.json", json.dumps(tests, indent=2))
