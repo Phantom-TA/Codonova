@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 930" width="1600" height="930" font-family="Segoe UI, Arial, sans-serif"><defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/></marker><marker id="arrowg" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#10b981"/></marker></defs><rect width="1600" height="930" fill="#0b1020"/>
+<text x="40" y="52" font-size="30" fill="#e2e8f0" font-weight="700" text-anchor="start">Codonova architecture</text>
+<text x="40" y="80" font-size="15.5" fill="#94a3b8" font-weight="400" text-anchor="start">Graph-driven multi-agent system that plans, builds, tests, corrects and runs software</text>
+<rect x="700" y="40" width="16" height="16" rx="4" fill="#10b981" stroke="#10b981" stroke-width="1.6"/>
+<text x="724" y="53" font-size="13.5" fill="#94a3b8" font-weight="400" text-anchor="start">New in this version</text>
+<rect x="905" y="40" width="16" height="16" rx="4" fill="#8b5cf6" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="929" y="53" font-size="13.5" fill="#94a3b8" font-weight="400" text-anchor="start">Existing</text>
+<rect x="1110" y="40" width="16" height="16" rx="4" fill="#38bdf8" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="1134" y="53" font-size="13.5" fill="#94a3b8" font-weight="400" text-anchor="start">Data store</text>
+<rect x="1315" y="40" width="16" height="16" rx="4" fill="#f59e0b" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="1339" y="53" font-size="13.5" fill="#94a3b8" font-weight="400" text-anchor="start">External service</text>
+<rect x="40" y="105" width="1520" height="175" rx="12" fill="#0e1830" stroke="#10b981" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="62" y="134" font-size="17" fill="#10b981" font-weight="700" text-anchor="start">Desktop app (Electron)</text>
+<text x="280" y="134" font-size="13.5" fill="#94a3b8" font-weight="400" text-anchor="start">starts Docker + services, tray icon, native notifications</text>
+<rect x="70" y="150" width="1460" height="112" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="90" y="176" font-size="16" fill="#e2e8f0" font-weight="700" text-anchor="start">React dashboard</text>
+<rect x="90" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#8b5cf6" stroke-width="1.4"/>
+<text x="172" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Task Graph</text>
+<rect x="270" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#10b981" stroke-width="2"/>
+<text x="352" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Plan Review</text>
+<rect x="450" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#8b5cf6" stroke-width="1.4"/>
+<text x="532" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Code Viewer</text>
+<rect x="630" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#10b981" stroke-width="2"/>
+<text x="712" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Live Preview</text>
+<rect x="810" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#10b981" stroke-width="2"/>
+<text x="892" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Run Report</text>
+<rect x="990" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#8b5cf6" stroke-width="1.4"/>
+<text x="1072" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Agent Analytics</text>
+<rect x="1170" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#8b5cf6" stroke-width="1.4"/>
+<text x="1252" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Evaluations</text>
+<rect x="1350" y="192" width="164" height="44" rx="10" fill="#141b34" stroke="#8b5cf6" stroke-width="1.4"/>
+<text x="1432" y="220" font-size="14.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Insights</text>
+<line x1="800" y1="280" x2="800" y2="332" stroke="#94a3b8" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<text x="815" y="312" font-size="13" fill="#94a3b8" font-weight="400" text-anchor="start">HTTP + WebSocket (live events)</text>
+<rect x="40" y="335" width="1520" height="300" rx="12" fill="#10172e" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="62" y="364" font-size="17" fill="#e2e8f0" font-weight="700" text-anchor="start">FastAPI backend</text>
+<rect x="62" y="380" width="228" height="56" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="176.0" y="414.0" font-size="15" fill="#e2e8f0" font-weight="600" text-anchor="middle">REST + WebSocket API</text>
+<rect x="307" y="380" width="228" height="56" rx="12" fill="#141b34" stroke="#10b981" stroke-width="2.2"/>
+<text x="421.0" y="402.0" font-size="15" fill="#e2e8f0" font-weight="600" text-anchor="middle">Plan editor API</text>
+<text x="421.0" y="425.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">edit, add, delete, deps</text>
+<rect x="491" y="371" width="40" height="18" rx="9" fill="#10b981"/>
+<text x="511" y="384" font-size="10.5" fill="#04261c" font-weight="700" text-anchor="middle">NEW</text>
+<rect x="552" y="380" width="228" height="56" rx="12" fill="#141b34" stroke="#10b981" stroke-width="2.2"/>
+<text x="666.0" y="402.0" font-size="15" fill="#e2e8f0" font-weight="600" text-anchor="middle">Preview manager</text>
+<text x="666.0" y="425.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">run generated apps</text>
+<rect x="736" y="371" width="40" height="18" rx="9" fill="#10b981"/>
+<text x="756" y="384" font-size="10.5" fill="#04261c" font-weight="700" text-anchor="middle">NEW</text>
+<rect x="797" y="380" width="228" height="56" rx="12" fill="#141b34" stroke="#10b981" stroke-width="2.2"/>
+<text x="911.0" y="402.0" font-size="15" fill="#e2e8f0" font-weight="600" text-anchor="middle">Run report</text>
+<text x="911.0" y="425.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">real metrics</text>
+<rect x="981" y="371" width="40" height="18" rx="9" fill="#10b981"/>
+<text x="1001" y="384" font-size="10.5" fill="#04261c" font-weight="700" text-anchor="middle">NEW</text>
+<rect x="1042" y="380" width="228" height="56" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="1156.0" y="402.0" font-size="15" fill="#e2e8f0" font-weight="600" text-anchor="middle">Scheduler</text>
+<text x="1156.0" y="425.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">dependency order</text>
+<rect x="1287" y="380" width="228" height="56" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="1401.0" y="402.0" font-size="15" fill="#e2e8f0" font-weight="600" text-anchor="middle">LLM client + router</text>
+<text x="1401.0" y="425.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">model fallback chain</text>
+<rect x="62" y="456" width="985" height="160" rx="14" fill="#0b1020" stroke="#2a3358" stroke-width="1.6"/>
+<text x="80" y="482" font-size="15" fill="#94a3b8" font-weight="700" text-anchor="start">Agents</text>
+<rect x="78" y="496" width="180" height="66" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="168.0" y="523.0" font-size="15.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Planning</text>
+<text x="168.0" y="546.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">tasks + files + API contract</text>
+<rect x="271" y="496" width="180" height="66" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="361.0" y="523.0" font-size="15.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Developer</text>
+<text x="361.0" y="546.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">writes one file per task</text>
+<rect x="464" y="496" width="180" height="66" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="554.0" y="523.0" font-size="15.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Testing</text>
+<text x="554.0" y="546.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">Jest, npm install</text>
+<rect x="657" y="496" width="180" height="66" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="747.0" y="523.0" font-size="15.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Evaluator</text>
+<text x="747.0" y="546.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">scores 0-10</text>
+<rect x="850" y="496" width="180" height="66" rx="12" fill="#141b34" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="940.0" y="523.0" font-size="15.5" fill="#e2e8f0" font-weight="600" text-anchor="middle">Debugging</text>
+<text x="940.0" y="546.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">root cause + critique</text>
+<rect x="78" y="574" width="957" height="32" rx="10" fill="#1a1440" stroke="#8b5cf6" stroke-width="1.6"/>
+<text x="556" y="596" font-size="13.5" fill="#e2e8f0" font-weight="400" text-anchor="middle">Self-correction engine: test, evaluate, debug, retry (up to 2 attempts), block dependents on failure</text>
+<rect x="1075" y="456" width="460" height="160" rx="14" fill="#141b34" stroke="#10b981" stroke-width="2.2"/>
+<text x="1095" y="482" font-size="15" fill="#10b981" font-weight="700" text-anchor="start">Generated app sandbox</text>
+<text x="1095" y="512" font-size="14" fill="#e2e8f0" font-weight="400" text-anchor="start">one Node process per project</text>
+<text x="1095" y="536" font-size="14" fill="#e2e8f0" font-weight="400" text-anchor="start">ports 4100-4110, shown in an iframe</text>
+<text x="1095" y="560" font-size="14" fill="#94a3b8" font-weight="400" text-anchor="start">minimal environment: no API keys,</text>
+<text x="1095" y="580" font-size="14" fill="#94a3b8" font-weight="400" text-anchor="start">no database passwords</text>
+<rect x="40" y="705" width="360" height="100" rx="12" fill="#141b34" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="220.0" y="749.0" font-size="16" fill="#e2e8f0" font-weight="600" text-anchor="middle">Neo4j graph database</text>
+<text x="220.0" y="772.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">plan graph, tasks, code versions,</text>
+<text x="220" y="790" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">results, plan edit history</text>
+<rect x="430" y="705" width="330" height="100" rx="12" fill="#141b34" stroke="#38bdf8" stroke-width="1.6"/>
+<text x="595.0" y="749.0" font-size="16" fill="#e2e8f0" font-weight="600" text-anchor="middle">ChromaDB vector memory</text>
+<text x="595.0" y="772.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">high-scoring code reused as context</text>
+<rect x="790" y="705" width="400" height="100" rx="12" fill="#141b34" stroke="#f59e0b" stroke-width="1.6"/>
+<text x="990.0" y="749.0" font-size="16" fill="#e2e8f0" font-weight="600" text-anchor="middle">Gemini model chain</text>
+<text x="990.0" y="772.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">3.5 flash, 3.6 flash, preview, lite ...</text>
+<text x="990" y="790" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">OpenRouter as last resort</text>
+<rect x="1220" y="705" width="340" height="100" rx="12" fill="#141b34" stroke="#10b981" stroke-width="2.2"/>
+<text x="1390.0" y="749.0" font-size="16" fill="#e2e8f0" font-weight="600" text-anchor="middle">LangSmith</text>
+<text x="1390.0" y="772.0" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="middle">traces every agent and LLM call</text>
+<rect x="1516" y="696" width="40" height="18" rx="9" fill="#10b981"/>
+<text x="1536" y="709" font-size="10.5" fill="#04261c" font-weight="700" text-anchor="middle">NEW</text>
+<line x1="220" y1="635" x2="220" y2="705" stroke="#94a3b8" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<line x1="595" y1="635" x2="595" y2="705" stroke="#94a3b8" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+<line x1="990" y1="635" x2="990" y2="705" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="1390" y1="635" x2="1390" y2="705" stroke="#10b981" stroke-width="2" marker-end="url(#arrowg)"/>
+<text x="235" y="674" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="start">tasks, results</text>
+<text x="610" y="674" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="start">similar context</text>
+<text x="1005" y="674" font-size="12.5" fill="#94a3b8" font-weight="400" text-anchor="start">LLM calls, key + model rotation</text>
+<text x="1405" y="674" font-size="12.5" fill="#10b981" font-weight="400" text-anchor="start">tracing</text>
+<text x="40" y="850" font-size="14" fill="#94a3b8" font-weight="400" text-anchor="start">Everything runs in Docker Compose: neo4j, chromadb, backend, frontend (nginx). The desktop app only starts and wraps them.</text>
+<text x="40" y="876" font-size="14" fill="#94a3b8" font-weight="400" text-anchor="start">The dashboard shows the pipeline live over WebSocket; the plan, code, tests and scores are stored as a graph.</text>
+</svg>

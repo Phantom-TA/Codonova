@@ -2,6 +2,34 @@
 
 This log traces modifications, bug fixes, operational adjustments, and testing milestones within the Codonova Autonomous System workspace.
 
+## [2026-11-23] - Platform upgrades
+**Plan review, live preview, run reports, desktop app and tracing**
+
+### Added
+- **Plan Review panel:** edit tasks, features, dependencies (cycles rejected) and the API contract before approving; edit history stored as `PlanRevision` nodes. Backend in `plan_editor.py`.
+- **Live Preview:** `preview_manager.py` installs a generated app's npm packages, starts it on ports 4100-4110 with a minimal environment (no API keys) and shows it in the dashboard. `project_runtime.py` scans the code for dependencies and writes `package.json`.
+- **Run Report:** `run_report.py` with first-pass and final pass rate, attempts, tests, time per task, tokens and absorbed API errors; Run Report panel, `RUN_REPORT.md` in the ZIP, and `backend/benchmark.py` for batch runs.
+- **Electron desktop app (`desktop/`):** starts Docker and the services, tray, menu, native notifications and save dialog, Windows installer.
+- **LangSmith tracing (optional):** every LLM call and the agent hierarchy, enabled by environment variables.
+- **Model fallback chain:** `GEMINI_MODEL` accepts several models; exhausted models are skipped for a while; OpenRouter only when a key exists.
+- API contract now carries request and response JSON shapes so frontend and backend agree on field names.
+
+### Changed
+- Developer prompt produces a runnable layout (`server.js`, `lib/`, `public/`), reads `PORT` from the environment, uses same-origin API calls and readable styling.
+- The planner assigns each task one file and drops duplicates (two tasks writing the same file used to leave pages without their scripts).
+- Retries overwrite the same file and archive earlier attempts in `.versions/` instead of creating `server_v2.js`.
+- Agent scores are measured (Developer = evaluator score per attempt, Testing = share of tests passed); agents without an objective score show none.
+- Export ZIP is the whole runnable project with an npm README.
+
+### Fixed
+- Agent calls ran inside the async event loop and froze the API and WebSocket during a run; they now run in worker threads.
+- Jest runs that passed were recorded as failed (relative report path was resolved twice).
+- Planner attached all tasks to the first feature and reused task ids across features.
+- Task graph canvas used the window size and cut off nodes; it now fits its panel.
+- `/api/start` did not mark the project RUNNING; `/api/execute` turned 404 and 400 into 500 and allowed a double start.
+- Embedding model is cached in a Docker volume instead of being downloaded after every rebuild.
+- Default model updated (`gemini-2.5-flash` is no longer served to new keys).
+
 ## [2026-04-04] - Phase 5 Operational Fixes
 **System Stability & API Resilience Pass**
 
