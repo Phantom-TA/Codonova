@@ -77,9 +77,17 @@ def _package_root(spec: str) -> Optional[str]:
     return root
 
 
+def walk_files(directory: Path):
+    """All files under directory, never descending into node_modules / .versions / .git."""
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in files:
+            yield Path(root) / name
+
+
 def iter_source_files(directory: Path):
-    for path in directory.rglob("*"):
-        if path.is_file() and path.suffix in SOURCE_EXT and not (SKIP_DIRS & set(path.parts)):
+    for path in walk_files(directory):
+        if path.suffix in SOURCE_EXT:
             yield path
 
 

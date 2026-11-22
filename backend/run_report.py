@@ -23,7 +23,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 
 from graph.neo4j_client import query_graph
-from project_runtime import project_dir, iter_source_files, SKIP_DIRS
+from project_runtime import project_dir, walk_files
 
 logger = logging.getLogger("run_report")
 
@@ -53,9 +53,8 @@ def _code_stats(project_id: str) -> dict:
     if not directory.exists():
         return {"files": 0, "lines": 0}
     files = lines = 0
-    for path in directory.rglob("*"):
-        if (not path.is_file() or SKIP_DIRS & set(path.parts)
-                or path.name in ("package-lock.json", "package.json")
+    for path in walk_files(directory):
+        if (path.name in ("package-lock.json", "package.json")
                 or path.name.startswith(".report_")):
             continue
         if path.suffix not in {".js", ".mjs", ".cjs", ".html", ".css", ".json", ".md"}:

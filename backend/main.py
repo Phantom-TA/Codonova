@@ -657,17 +657,14 @@ async def export_project(project_id: str):
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
             # The whole generated project (runnable as-is), without installed
             # packages or archived retry versions.
-            from project_runtime import ensure_package_json, project_dir as _project_dir
+            from project_runtime import ensure_package_json, walk_files, project_dir as _project_dir
             proj_dir = _project_dir(project_id)
             if proj_dir.exists():
                 ensure_package_json(proj_dir)
-                skip_dirs = {"node_modules", ".versions", ".git"}
-                for path in sorted(proj_dir.rglob("*")):
-                    rel = path.relative_to(proj_dir)
-                    if (not path.is_file() or skip_dirs & set(rel.parts)
-                            or path.name.startswith(".report_") or path.suffix == ".bak"):
+                for path in sorted(walk_files(proj_dir)):
+                    if path.name.startswith(".report_") or path.suffix == ".bak":
                         continue
-                    zf.write(path, rel.as_posix())
+                    zf.write(path, path.relative_to(proj_dir).as_posix())
 
             # README.md
             zf.writestr("README.md", _generate_readme(title, description, files, evaluations))

@@ -47,6 +47,7 @@ Backend rules:
 Frontend rules:
 - Call the API with relative URLs such as fetch('/api/items'); never hard-code localhost or a port
 - Use only the endpoints of the project API contract when one is given
+- Make it look good: a centered card layout, a dark page background with light text (or the reverse), buttons with a visible solid background and a readable label, input fields with a border, comfortable spacing. Never put white text on a white background
 General rules:
 - Complete, runnable code. No TODOs, no placeholders, no markdown fences inside the code field
 - Handle errors. Use ES6+ and CommonJS require()
