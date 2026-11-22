@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import TaskGraph from './components/TaskGraph.jsx'
+import PlanReview from './components/PlanReview.jsx'
 import AgentFeed from './components/AgentFeed.jsx'
 import CodeViewer from './components/CodeViewer.jsx'
 import EvalChart from './components/EvalChart.jsx'
@@ -9,6 +10,7 @@ import AgentAnalytics from './components/AgentAnalytics.jsx'
 // ─── Panel Definitions ────────────────────────────────────────────────────────
 const PANELS = [
   { id: 'graph',     label: 'Task Graph',       component: TaskGraph },
+  { id: 'plan',      label: 'Plan Review',      component: PlanReview },
   { id: 'feed',      label: 'Agent Feed',       component: AgentFeed },
   { id: 'code',      label: 'Code Viewer',      component: CodeViewer },
   { id: 'analytics', label: 'Agent Analytics',  component: AgentAnalytics },
@@ -33,7 +35,11 @@ function ProjectStatusBar({ status, projectId }) {
 
   const handleExecute = async () => {
     try {
-      await fetch(`/api/execute/${projectId}`, { method: 'POST' })
+      const res = await fetch(`/api/execute/${projectId}`, { method: 'POST' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert('Could not start execution: ' + (err.detail || res.status))
+      }
     } catch (e) {
       alert('Failed to start execution: ' + e.message)
     }
@@ -97,7 +103,7 @@ function PipelineLauncher({ onLaunched, loading, setLoading }) {
       }
       const data = await res.json()
       setResult(data)
-      onLaunched(data.project_id)
+      onLaunched(data.project_id, data)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -243,6 +249,7 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [tracing, setTracing] = useState(null) // LangSmith status: { enabled, project, url }
+  const [focusTask, setFocusTask] = useState(null) // task to open in Plan Review: { id, nonce }
 
   // LangSmith tracing status (optional feature)
   useEffect(() => {
@@ -288,9 +295,17 @@ export default function App() {
   const ActivePanel = PANELS.find(p => p.id === activePanel)?.component
   const panelProps = {
     projectId,
+    focusTask,
+    projectState: projectStatus?.status,
+    onApproved: () => setActivePanel('graph'),
     onNodeClick: (node) => {
       // Clicking a code module node switches to code viewer
       if (node.type === 'CodeModule') setActivePanel('code')
+      // Clicking a task while the plan is still editable opens it in Plan Review
+      if (node.type === 'Task' && projectStatus?.status === 'PLANNED') {
+        setFocusTask({ id: node.id, nonce: Date.now() })
+        setActivePanel('plan')
+      }
     },
   }
 
@@ -447,7 +462,11 @@ export default function App() {
           {/* Right sidebar: launcher */}
           <div className="w-80 flex-shrink-0 flex flex-col gap-4">
             <PipelineLauncher
-              onLaunched={setProjectId}
+              onLaunched={(id, data) => {
+                setProjectId(id)
+                // Plan-only runs go straight to the review screen
+                if (data && !data.status) setActivePanel('plan')
+              }}
               loading={loading}
               setLoading={setLoading}
             />
