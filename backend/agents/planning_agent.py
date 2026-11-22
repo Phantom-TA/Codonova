@@ -13,6 +13,7 @@ import uuid
 import logging
 from datetime import datetime
 from llm_client import llm_call, parse_json_response, set_active_agent
+from tracing import traceable
 from graph.neo4j_client import (
     create_node, link_nodes, query_graph, upsert_agent, update_agent_profile,
     store_api_schema
@@ -85,6 +86,7 @@ Rules:
 
     # ─── Core Methods ─────────────────────────────────────────────────────────
 
+    @traceable(name="PlanningAgent.run")
     def run(self, requirement: str) -> dict:
         """
         Main entry point. Runs the full planning pipeline.

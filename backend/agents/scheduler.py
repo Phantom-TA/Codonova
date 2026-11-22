@@ -20,6 +20,7 @@ from agents.correction_engine import CorrectionEngine
 from agents.testing_agent import TestingAgent
 from agents.debugging_agent import DebuggingAgent
 from llm_client import set_active_project
+from tracing import traceable, annotate
 
 logger = logging.getLogger("scheduler")
 
@@ -80,12 +81,16 @@ class Scheduler:
         dispatch_tasks = [self._dispatch(task) for task in tasks_to_run]
         await asyncio.gather(*dispatch_tasks, return_exceptions=True)
 
+    @traceable(name="pipeline_task")
     async def _dispatch(self, task_node: dict):
         """Route a single task to the appropriate agent."""
         task_id = task_node["id"]
         task_type = task_node.get("type", "CODE")
         title = task_node.get("title", "Unknown")
 
+        annotate(metadata={"project_id": self.project_id, "task_id": task_id,
+                           "task_title": title, "task_type": task_type},
+                 tags=[f"project:{self.project_id[:8]}", task_type])
         logger.info(f"Dispatching task [{task_type}]: {title}")
 
         # Mark as in-progress

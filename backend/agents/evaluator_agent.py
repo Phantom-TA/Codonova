@@ -12,6 +12,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from llm_client import llm_call, parse_json_response, set_active_agent
+from tracing import traceable
 from graph.neo4j_client import (
     create_node, link_nodes, query_graph, upsert_agent, update_agent_profile
 )
@@ -40,6 +41,7 @@ class EvaluatorAgent:
     def __init__(self):
         upsert_agent(self.AGENT_NAME)
 
+    @traceable(name="EvaluatorAgent.run")
     def run(self, task_node: dict) -> dict:
         """
         Evaluate the CodeModule for a given task.

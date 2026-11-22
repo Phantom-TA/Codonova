@@ -242,6 +242,15 @@ export default function App() {
   const [projectStatus, setProjectStatus] = useState(null)
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [tracing, setTracing] = useState(null) // LangSmith status: { enabled, project, url }
+
+  // LangSmith tracing status (optional feature)
+  useEffect(() => {
+    fetch('/api/tracing')
+      .then(r => r.json())
+      .then(setTracing)
+      .catch(() => setTracing(null))
+  }, [])
 
   // Fetch project status periodically
   useEffect(() => {
@@ -375,6 +384,20 @@ export default function App() {
             >
               Open Neo4j Browser ↗
             </a>
+
+            {/* LangSmith traces link (only when tracing is enabled) */}
+            {tracing?.enabled && (
+              <a
+                href={tracing.url || 'https://smith.langchain.com/'}
+                target="_blank"
+                rel="noopener noreferrer"
+                id="btn-langsmith"
+                className="block w-full py-2 rounded-lg text-xs text-emerald-400 hover:text-emerald-300
+                           bg-emerald-500/10 hover:bg-emerald-500/15 transition-all text-center"
+              >
+                Open LangSmith Traces ↗
+              </a>
+            )}
           </div>
         )}
       </aside>

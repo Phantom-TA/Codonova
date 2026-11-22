@@ -22,6 +22,7 @@ from graph.neo4j_client import (
     mark_task_status
 )
 from memory.memory_store import MemoryStore
+from tracing import traceable, annotate
 
 logger = logging.getLogger("correction_engine")
 
@@ -43,6 +44,7 @@ class CorrectionEngine:
         self.memory = MemoryStore()
         self.ws_broadcaster = ws_broadcaster  # Async callable for WebSocket events
 
+    @traceable(name="CorrectionEngine.run")
     async def run(self, task_node: dict) -> dict:
         """
         Execute a CODE task with full self-correction loop.
@@ -51,6 +53,9 @@ class CorrectionEngine:
             dict with final status, score, attempts used
         """
         task_id = task_node["id"]
+        annotate(metadata={"task_id": task_id, "task_title": task_node.get("title", ""),
+                           "project_id": task_node.get("project_id", "")},
+                 tags=["correction-loop"])
         logger.info(f"CorrectionEngine starting for task: {task_id}")
 
         await self._emit("task_started", task_id=task_id, agent="DeveloperAgent")

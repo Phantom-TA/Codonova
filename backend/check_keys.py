@@ -6,7 +6,7 @@ load_dotenv()
 
 keys_str = os.getenv("GEMINI_API_KEY", "")
 keys = [k.strip().strip('"').strip("'") for k in keys_str.split(",") if k.strip().strip('"').strip("'")]
-model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 base_url = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
 
 print(f"Testing {len(keys)} Gemini API keys against model: {model}\n")

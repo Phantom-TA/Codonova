@@ -13,6 +13,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from llm_client import llm_call, parse_json_response, set_active_agent
+from tracing import traceable
 from graph.neo4j_client import (
     create_node, link_nodes, get_node, query_graph, upsert_agent, update_agent_profile,
     get_api_schema
@@ -52,6 +53,7 @@ class DeveloperAgent:
         self.retriever = ContextRetriever()
         GENERATED_CODE_DIR.mkdir(parents=True, exist_ok=True)
 
+    @traceable(name="DeveloperAgent.run")
     def run(self, task_node: dict) -> dict:
         """
         Generate code for a task.
@@ -100,6 +102,7 @@ class DeveloperAgent:
             "explanation": result.get("explanation", ""),
         }
 
+    @traceable(name="DeveloperAgent.run_with_critique")
     def run_with_critique(self, task_node: dict, critique: str, version: int) -> dict:
         """
         Re-generate code incorporating a critic's feedback.

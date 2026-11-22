@@ -15,6 +15,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from llm_client import llm_call, parse_json_response, set_active_agent
+from tracing import traceable
 from graph.neo4j_client import (
     create_node, link_nodes, query_graph, get_node, upsert_agent, update_agent_profile
 )
@@ -52,6 +53,7 @@ class TestingAgent:
         upsert_agent(self.AGENT_NAME)
 
 
+    @traceable(name="TestingAgent.run")
     def run(self, task_node: dict) -> dict:
         """
         Generate and run tests for the CodeModule associated with this task.
@@ -189,6 +191,7 @@ class TestingAgent:
         if not pkg_json.exists():
             pkg_json.write_text('{"name": "codonova-project", "scripts": {"test": "jest"}}')
 
+    @traceable(name="jest_run", run_type="tool")
     def _run_tests(self, test_filepath: Path, project_id: str) -> dict:
         """Execute jest and parse results."""
         report_file = test_filepath.parent / f".report_{test_filepath.stem}.json"

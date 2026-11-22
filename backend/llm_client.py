@@ -20,6 +20,7 @@ from datetime import datetime
 from contextvars import ContextVar
 from openai import OpenAI
 from dotenv import load_dotenv
+from tracing import wrap_client, call_extra
 
 load_dotenv()
 
@@ -123,12 +124,12 @@ def get_client(agent_type: str, key_offset: int = 0) -> tuple[OpenAI, str]:
         active_key = keys[(gemini_key_index + key_offset) % len(keys)]
         
         return (
-            OpenAI(
+            wrap_client(OpenAI(
                 api_key=active_key,
                 base_url=os.getenv("GEMINI_BASE_URL"),
                 max_retries=0,
-            ),
-            os.getenv("GEMINI_MODEL", "gemini-2.5-flash"),
+            )),
+            os.getenv("GEMINI_MODEL", "gemini-3.5-flash"),
         )
     else:
         keys_str = os.getenv("GROQ_API_KEY", "")
@@ -139,11 +140,11 @@ def get_client(agent_type: str, key_offset: int = 0) -> tuple[OpenAI, str]:
         active_key = keys[(groq_key_index + key_offset) % len(keys)]
         
         return (
-            OpenAI(
+            wrap_client(OpenAI(
                 api_key=active_key,
                 base_url=os.getenv("GROQ_BASE_URL"),
                 max_retries=0,
-            ),
+            )),
             os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
         )
 
@@ -151,11 +152,11 @@ def get_client(agent_type: str, key_offset: int = 0) -> tuple[OpenAI, str]:
 def _get_fallback_client() -> tuple[OpenAI, str]:
     """OpenRouter fallback for rate-limited calls."""
     return (
-        OpenAI(
+        wrap_client(OpenAI(
             api_key=os.getenv("OPENROUTER_API_KEY"),
             base_url=os.getenv("OPENROUTER_BASE_URL"),
             max_retries=0,
-        ),
+        )),
         os.getenv("OPENROUTER_MODEL", "meta-llama/llama-3.2-3b-instruct:free"),
     )
 
@@ -182,6 +183,17 @@ def llm_call(
     
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
+
+    # Name + tag each call in LangSmith (empty dict when tracing is off)
+    kwargs.update(call_extra(
+        name=f"{_active_agent.get()}.llm_call",
+        metadata={
+            "project_id": _active_project.get(),
+            "agent": _active_agent.get(),
+            "model_tier": agent_type,
+        },
+        tags=[_active_agent.get(), agent_type],
+    ))
 
     start_time = time.time()
     key_offset = 0

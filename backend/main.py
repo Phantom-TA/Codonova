@@ -179,6 +179,13 @@ async def health_check():
     }
 
 
+@app.get("/api/tracing")
+async def tracing_status():
+    """LangSmith tracing status + link to the traces page (used by the dashboard)."""
+    import tracing
+    return tracing.status()
+
+
 @app.post("/api/plan")
 async def create_plan(request: PlanRequest):
     """
