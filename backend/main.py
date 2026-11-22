@@ -201,7 +201,7 @@ async def create_plan(request: PlanRequest):
     try:
         from agents.planning_agent import PlanningAgent
         planner = PlanningAgent()
-        result = planner.run(request.requirement)
+        result = await asyncio.to_thread(planner.run, request.requirement)
         return {
             "project_id": result["project_id"],
             "title": result["title"],
@@ -233,7 +233,7 @@ async def start_pipeline(request: StartRequest, background_tasks: BackgroundTask
         # Step 1: Plan
         from agents.planning_agent import PlanningAgent
         planner = PlanningAgent()
-        plan_result = planner.run(request.requirement)
+        plan_result = await asyncio.to_thread(planner.run, request.requirement)
         project_id = plan_result["project_id"]
 
         # Step 2: Launch scheduler in background

@@ -11,6 +11,7 @@ Integrates with WebSocket event emitter for real-time updates.
 """
 
 import json
+import asyncio
 import logging
 from datetime import datetime
 from .developer_agent import DeveloperAgent
@@ -70,10 +71,10 @@ class CorrectionEngine:
 
             # 1. Generate/regenerate code
             if attempts == 1:
-                dev_result = self.dev_agent.run(task_node)
+                dev_result = await asyncio.to_thread(self.dev_agent.run, task_node)
             else:
-                dev_result = self.dev_agent.run_with_critique(
-                    task_node, last_critique, version=attempts
+                dev_result = await asyncio.to_thread(
+                    self.dev_agent.run_with_critique, task_node, last_critique, version=attempts
                 )
 
             if not dev_result.get("success"):
@@ -83,11 +84,11 @@ class CorrectionEngine:
 
             # 2. Run tests
             await self._emit("task_started", task_id=task_id, agent="TestingAgent")
-            test_result = self.test_agent.run(task_node)
+            test_result = await asyncio.to_thread(self.test_agent.run, task_node)
 
             # 3. Evaluate quality
             await self._emit("task_started", task_id=task_id, agent="EvaluatorAgent")
-            eval_result = self.eval_agent.run(task_node)
+            eval_result = await asyncio.to_thread(self.eval_agent.run, task_node)
             score = eval_result.get("score", 0)
             last_eval = eval_result
 
@@ -103,7 +104,8 @@ class CorrectionEngine:
 
             if score >= PASS_SCORE:
                 # ✅ Success — store in memory
-                self.memory.store_success(
+                await asyncio.to_thread(
+                    self.memory.store_success,
                     task_description=task_node.get("description", "") + " " + task_node.get("title", ""),
                     code=self._get_generated_code(dev_result.get("filename", "")),
                     score=score,
@@ -131,7 +133,7 @@ class CorrectionEngine:
             # If tests failed, also run debugger
             if not test_result.get("success"):
                 await self._emit("task_started", task_id=task_id, agent="DebuggingAgent")
-                debug_result = self.debug_agent.run(task_node)
+                debug_result = await asyncio.to_thread(self.debug_agent.run, task_node)
                 critique_parts.append(
                     f"Bug found: {debug_result.get('root_cause', '')}. "
                     f"Fix applied: {', '.join(debug_result.get('changes', []))}"

@@ -110,12 +110,12 @@ class Scheduler:
             if task_type == "CODE":
                 result = await self.correction_engine.run(task_node)
             elif task_type == "TEST":
-                result = self.test_agent.run(task_node)
+                result = await asyncio.to_thread(self.test_agent.run, task_node)
                 # Determine task completion
                 status = "DONE" if result.get("success") else "FAILED"
                 mark_task_status(task_id, status)
             elif task_type == "DEBUG":
-                result = self.debug_agent.run(task_node)
+                result = await asyncio.to_thread(self.debug_agent.run, task_node)
                 # After debugging, put the task back for re-testing
                 if result.get("needs_retest"):
                     # Find the original CODE task and reset it
