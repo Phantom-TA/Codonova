@@ -179,11 +179,19 @@ Rules:
                 data = parse_json_response(raw)
                 feature_tasks = data.get("tasks", [])
                 
-                # Ensure each task is correctly linked to the feature ID
-                for task in feature_tasks:
-                    if not task.get("feature_id"):
-                        task["feature_id"] = feature.get("id")
-                
+                # The LLM often echoes the example ids from the prompt (feature "f1",
+                # tasks "t1", "t2"...), so always trust our own feature id and make task
+                # ids unique across features. Otherwise tasks land under the wrong
+                # feature and dependencies resolve to tasks of another feature.
+                fid = feature.get("id") or f"f{i + 1}"
+                local_ids = {t.get("id") for t in feature_tasks}
+                for n, task in enumerate(feature_tasks):
+                    task["feature_id"] = fid
+                    task["id"] = f"{fid}.{task.get('id') or f't{n + 1}'}"
+                    task["depends_on"] = [
+                        f"{fid}.{d}" for d in (task.get("depends_on") or []) if d in local_ids
+                    ]
+
                 all_tasks.extend(feature_tasks)
             except Exception as e:
                 logger.error(f"Failed to decompose feature {feature.get('id')}: {e}")
