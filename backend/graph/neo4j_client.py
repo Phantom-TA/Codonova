@@ -161,7 +161,9 @@ def get_pending_tasks(project_id: str) -> list[dict]:
 
 
 def mark_task_status(task_id: str, status: str):
-    cypher = "MATCH (t:Task {id: $task_id}) SET t.status = $status, t.updated_at = $at"
+    # Remember when a task started so the run report can show how long it took.
+    extra = ", t.started_at = $at" if status == "IN_PROGRESS" else ""
+    cypher = f"MATCH (t:Task {{id: $task_id}}) SET t.status = $status, t.updated_at = $at{extra}"
     query_graph(cypher, {"task_id": task_id, "status": status, "at": datetime.utcnow().isoformat()})
     logger.info(f"Task {task_id} → {status}")
 
@@ -203,15 +205,26 @@ def block_dependent_tasks(task_id: str):
 def upsert_agent(name: str):
     query_graph("""
     MERGE (a:Agent {name: $name})
-    ON CREATE SET a.created_at = $at, a.total_tasks = 0, a.avg_score = 0.0
+    ON CREATE SET a.created_at = $at
+    WITH a WHERE a.metrics_v2 IS NULL
+    SET a.total_tasks = 0, a.scored_tasks = 0, a.avg_score = 0.0, a.retries = 0, a.metrics_v2 = true
     """, {"name": name, "at": datetime.utcnow().isoformat()})
+    # metrics_v2: older versions stored fixed placeholder scores, so stats start fresh once.
 
 
-def update_agent_profile(name: str, score: float, task_type: str, retries: int):
+def update_agent_profile(name: str, score: Optional[float], task_type: str, retries: int):
+    """
+    Record one unit of work for an agent. `score` is a real measured value (0-10) or
+    None when the agent has no objective score, in which case only the counters move.
+    (SET items run in order, so avg_score must use scored_tasks before it is incremented.)
+    """
     cypher = """
     MATCH (a:Agent {name: $name})
-    SET a.avg_score = ((a.avg_score * a.total_tasks) + $score) / (a.total_tasks + 1),
-        a.total_tasks = a.total_tasks + 1,
+    SET a.avg_score = CASE WHEN $score IS NULL THEN coalesce(a.avg_score, 0.0)
+            ELSE ((coalesce(a.avg_score, 0.0) * coalesce(a.scored_tasks, 0)) + $score)
+                 / (coalesce(a.scored_tasks, 0) + 1) END,
+        a.scored_tasks = coalesce(a.scored_tasks, 0) + CASE WHEN $score IS NULL THEN 0 ELSE 1 END,
+        a.total_tasks = coalesce(a.total_tasks, 0) + 1,
         a.retries = coalesce(a.retries, 0) + $retries,
         a.updated_at = $at
     """
@@ -251,7 +264,7 @@ def get_most_failed_task_types():
 
 
 def get_agent_retry_rates():
-    return query_graph("MATCH (a:Agent) RETURN a.name AS agent, a.total_tasks AS tasks, coalesce(a.retries, 0) AS retries, a.avg_score AS avg_score, CASE WHEN a.total_tasks > 0 THEN toFloat(coalesce(a.retries,0)) / a.total_tasks ELSE 0 END AS retry_rate ORDER BY avg_score DESC")
+    return query_graph("MATCH (a:Agent) RETURN a.name AS agent, a.total_tasks AS tasks, coalesce(a.retries, 0) AS retries, CASE WHEN coalesce(a.scored_tasks, 0) > 0 THEN a.avg_score ELSE null END AS avg_score, CASE WHEN a.total_tasks > 0 THEN toFloat(coalesce(a.retries,0)) / a.total_tasks ELSE 0 END AS retry_rate ORDER BY a.name")
 
 
 def get_recurring_bugs():
@@ -298,7 +311,11 @@ def persist_llm_call(entry: dict):
             latency_ms: $latency_ms,
             tokens_used: $tokens_used,
             success:    $success,
-            project_id: $project_id
+            project_id: $project_id,
+            failed_attempts: $failed_attempts,
+            quota_errors:    $quota_errors,
+            overload_errors: $overload_errors,
+            fallback_used:   $fallback_used
         })
         """, {
             "id":          str(uuid.uuid4()),
@@ -309,6 +326,10 @@ def persist_llm_call(entry: dict):
             "tokens_used": entry.get("tokens_used") or 0,
             "success":     entry.get("success", False),
             "project_id":  entry.get("project_id", "__global__"),
+            "failed_attempts": entry.get("failed_attempts", 0),
+            "quota_errors":    entry.get("quota_errors", 0),
+            "overload_errors": entry.get("overload_errors", 0),
+            "fallback_used":   entry.get("fallback_used", False),
         })
     except Exception as e:
         logger.debug(f"LLM call log persist failed (non-critical): {e}")
@@ -329,7 +350,11 @@ def load_llm_call_log(limit: int = 2000) -> list[dict]:
             l.latency_ms  AS latency_ms,
             l.tokens_used AS tokens_used,
             l.success     AS success,
-            l.project_id  AS project_id
+            l.project_id  AS project_id,
+            coalesce(l.failed_attempts, 0) AS failed_attempts,
+            coalesce(l.quota_errors, 0)    AS quota_errors,
+            coalesce(l.overload_errors, 0) AS overload_errors,
+            coalesce(l.fallback_used, false) AS fallback_used
         ORDER BY l.timestamp DESC
         LIMIT $limit
         """, {"limit": limit})

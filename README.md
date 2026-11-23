@@ -1,220 +1,170 @@
-# Codonova 🤖
+# Codonova
 
-**Autonomous Software Development System** powered by deep AI agents,a Neo4j knowledge graph, ChromaDB memory, and a real-time React dashboard.
+**Autonomous software development with deep AI agents.** Give it a requirement in plain text. It plans the work as a task graph, lets you review and edit the plan, writes the code, tests it, scores it, fixes what fails, and then runs the finished app for you, live, inside the dashboard.
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green?logo=fastapi)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18-blue?logo=react)](https://reactjs.org)
-[![Neo4j](https://img.shields.io/badge/Neo4j-5.x-green?logo=neo4j)](https://neo4j.com)
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green?logo=fastapi)
+![React](https://img.shields.io/badge/React-18-blue?logo=react)
+![Neo4j](https://img.shields.io/badge/Neo4j-5.x-green?logo=neo4j)
+![Electron](https://img.shields.io/badge/Electron-desktop-47848f?logo=electron)
 
-## What It Does
+![Codonova dashboard](docs/screens/01-task-graph.png)
 
-Codonova autonomously:
-1. **Plans** — Analyzes requirements, extracts features, decomposes into tasks with dependencies
-2. **Develops** — Generates production-quality Python code using Gemini 2.5 Flash
-3. **Tests** — Auto-generates and runs pytest test suites using Groq Llama 4 Scout
-4. **Debugs** — Performs root-cause analysis and applies fixes using Gemini
-5. **Evaluates** — Scores output 0-10 on correctness, quality, completeness
-6. **Self-corrects** — Retries failing code up to 3 times with critique-augmented prompts
-7. **Learns** — Stores successful patterns in ChromaDB for future context injection
+## What it does
+
+1. **Plans.** The Planning agent splits the requirement into features and tasks, assigns each task exactly one file, and defines the REST API contract (endpoints with request and response JSON). Everything is stored as a graph in Neo4j.
+2. **You review the plan.** In **Plan Review** you can edit tasks, add or delete features and tasks, change dependencies (cycles are rejected) and edit the API contract. Every edit is kept in a history. Then you approve.
+3. **Builds.** The Scheduler runs tasks in dependency order, in parallel. The Developer agent writes one file per task (Node.js/Express backend, static HTML/CSS/JS frontend).
+4. **Tests and scores.** The Testing agent installs the dependencies and runs Jest tests. The Evaluator scores each attempt from 0 to 10.
+5. **Corrects itself.** A task passes at a score of 6 or more. Otherwise the Debugging agent finds the root cause and the Developer retries with that critique (up to 2 attempts). A task that still fails blocks the tasks that depend on it.
+6. **Runs the result.** **Live Preview** installs the generated app's packages, starts it on a free port and shows it in the dashboard.
+7. **Reports.** **Run Report** shows first-pass and final pass rate, retries, tests, time per task, tokens and the API errors that were absorbed. The same report is exported as `RUN_REPORT.md`.
+8. **Remembers.** Code that scored well is stored in ChromaDB and reused as context for similar tasks.
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────┐
-│                  React Dashboard                     │
-│  [Task Graph] [Agent Feed] [Code] [Scores] [Insights]│
-└──────────────────────┬──────────────────────────────┘
-                       │ REST + WebSocket
-┌──────────────────────▼──────────────────────────────┐
-│                  FastAPI Backend                     │
-│                                                     │
-│  PlanningAgent (Gemini)  → DecomposesRequirements  │
-│  Scheduler               → Routes tasks             │
-│  DeveloperAgent (Gemini) → Generates code           │
-│  TestingAgent (Groq)     → Writes+runs tests        │
-│  DebuggingAgent (Gemini) → Fixes failures           │
-│  EvaluatorAgent (Groq)   → Scores output            │
-│  CorrectionEngine        → Self-correction loop     │
-└────────┬─────────────────────────┬──────────────────┘
-         │ Neo4j Cypher            │ ChromaDB
-┌────────▼──────────┐   ┌──────────▼──────────────────┐
-│   Neo4j Graph DB  │   │  ChromaDB Vector Store       │
-│  (Task knowledge) │   │  (sentence-transformers)      │
-└───────────────────┘   └──────────────────────────────┘
-```
+![Architecture](docs/diagrams/architecture.png)
 
-## Quick Start
+![Pipeline flow](docs/diagrams/pipeline-flow.png)
 
-### Prerequisites
-- Docker & Docker Compose
-- API keys (all free):
-  - [Google AI Studio](https://aistudio.google.com) → Gemini 2.5 Flash
-  - [Groq Cloud](https://console.groq.com) → Llama 4 Scout
-  - [OpenRouter](https://openrouter.ai) → Fallback (optional)
+| Layer | Technology |
+|---|---|
+| Dashboard | React 18, Vite, Tailwind, react-force-graph, Recharts |
+| Desktop shell | Electron (starts Docker and the services, tray, notifications) |
+| Backend | Python 3.11, FastAPI, WebSocket |
+| Graph database | Neo4j 5 (plan, tasks, code versions, test and evaluation results, plan edits) |
+| Vector memory | ChromaDB (built-in ONNX embeddings) |
+| LLMs | Gemini through its OpenAI-compatible API, with a model fallback chain; OpenRouter as last resort |
+| Observability | Optional LangSmith tracing, plus the built-in Run Report and Agent Analytics |
+| Generated apps | Node.js, Express, Jest |
 
-### 1. Configure Environment
+## Quick start
+
+Requirements: Docker Desktop and a free [Gemini API key](https://aistudio.google.com).
 
 ```bash
-cd autonomousdev
-cp .env.example .env
-# Edit .env and fill in your API keys and Neo4j password
+cp .env.example .env      # then add GEMINI_API_KEY and a NEO4J_PASSWORD
+docker compose up -d --build
 ```
 
-`.env` required fields:
-```env
-GEMINI_API_KEY=your_key_here
-GROQ_API_KEY=your_key_here
-NEO4J_PASSWORD=choose_a_password
-```
+| Service | URL |
+|---|---|
+| Dashboard | http://localhost:3000 |
+| API docs | http://localhost:8000/docs |
+| Neo4j Browser | http://localhost:7474 |
+| Generated app preview | http://localhost:4100 to 4110 |
 
-### 2. Start with Docker Compose
+### Desktop app
+
+A native window that starts everything for you. See [desktop/README.md](desktop/README.md).
 
 ```bash
-docker-compose up -d
-```
-
-Services start in order: Neo4j → ChromaDB → Backend → Frontend
-
-### 3. Verify Services
-
-| Service   | URL                           | Purpose                |
-|-----------|-------------------------------|------------------------|
-| Dashboard | http://localhost:3000         | React UI               |
-| API Docs  | http://localhost:8000/docs    | Swagger UI             |
-| Neo4j     | http://localhost:7474         | Graph Browser          |
-| ChromaDB  | http://localhost:8001         | Vector DB              |
-
-### 4. Run Without Docker (Development)
-
-**Backend:**
-```bash
-cd autonomousdev/backend
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-**Frontend:**
-```bash
-cd autonomousdev/frontend
+cd desktop
 npm install
-npm run dev  # runs on http://localhost:3000
+npm start          # run from source
+npm run dist       # build the Windows installer
 ```
 
-## Usage
+## Using it
 
-### Via Dashboard
-1. Open http://localhost:3000
-2. Enter a requirement in the launcher (right panel)
-3. Click **🚀 Start Autonomous Pipeline**
-4. Watch the Task Graph panel fill with nodes
-5. Monitor live events in the Agent Feed panel
-6. View generated code in the Code Viewer
-7. Download the ZIP export when complete
+1. Describe what to build and choose **Plan Only** (review first) or **Full Pipeline** (no review).
+2. **Plan Review**: edit the plan, check the API Contract tab, then **Approve & Implement**.
+3. Watch the **Task Graph** and **Agent Feed** fill in live.
+4. When it finishes, press **Run App** (Live Preview), open **Run Report**, or **Export ZIP**.
 
-### Via API
+![Plan Review](docs/screens/02-plan-review.png)
 
-**Plan only:**
+![Live Preview](docs/screens/05-live-preview.png)
+
+![Run Report](docs/screens/06-run-report.png)
+
+### Through the API
+
 ```bash
-curl -X POST http://localhost:8000/api/plan \
-  -H "Content-Type: application/json" \
-  -d '{"requirement": "Build a REST API for a task management app"}'
+# plan only
+curl -X POST http://localhost:8000/api/plan -H "Content-Type: application/json" \
+  -d '{"requirement": "A notes app with a REST API and a simple web page"}'
+
+# approve and run an existing plan
+curl -X POST http://localhost:8000/api/execute/{project_id}
+
+# plan and run in one step
+curl -X POST http://localhost:8000/api/start -H "Content-Type: application/json" \
+  -d '{"requirement": "..."}'
 ```
 
-**Full pipeline:**
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/projects/{id}/plan` | The editable plan (features, tasks, dependencies, API contract) |
+| `PATCH /api/tasks/{id}`, `POST /api/projects/{id}/tasks`, `DELETE /api/tasks/{id}` | Edit tasks |
+| `POST /api/tasks/{id}/dependencies`, `DELETE /api/tasks/{id}/dependencies/{dep}` | Edit dependencies |
+| `PUT /api/projects/{id}/api-schema` | Edit the API contract |
+| `GET /api/projects/{id}/revisions` | Plan edit history |
+| `POST /api/preview/{id}/start`, `.../stop`, `.../restart`, `GET .../status` | Live Preview |
+| `GET /api/report/{id}`, `GET /api/report/{id}/markdown` | Run Report |
+| `GET /api/export/{id}` | ZIP of the runnable project and reports |
+| `GET /api/status/{id}`, `GET /api/graph/{id}` | Progress and task graph |
+| `GET /api/analytics/agents`, `GET /api/insights` | Agent analytics |
+| `WS /ws/progress` | Live event stream |
+
+## Surviving API limits
+
+![Surviving API limits](docs/diagrams/resilience.png)
+
+`GEMINI_MODEL` takes a comma-separated chain. When a model returns a quota (429) or overload (503) error, the next key or model is tried, exhausted models are skipped for a while, and OpenRouter is used only if a key is configured. Each call records how many errors it absorbed, and the Run Report shows the total.
+
+## LLM configuration
+
+| Setting | Meaning |
+|---|---|
+| `GEMINI_API_KEY` | One key, or several separated by commas (rotated on quota errors) |
+| `GEMINI_MODEL` | Model chain, in priority order |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | Optional last-resort fallback |
+| `LANGSMITH_TRACING`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT` | Optional tracing of every agent and LLM call |
+
+## Neo4j graph schema
+
+```
+Project ──HAS_FEATURE──► Feature ──HAS_TASK──► Task ──DEPENDS_ON──► Task
+   │                                             ▲
+   ├──HAS_REVISION──► PlanRevision               └── CodeModule ──PRODUCED_BY (one per attempt)
+   │                                                      ▲
+   └──HAS_REQUIREMENT──► Requirement   TestResult ──VALIDATES──┤
+                                       EvaluationResult ──EVALUATES──┘
+                                       Bug ──FAILED_BY──► CodeModule ◄── Fix
+LLMCallLog (per call: agent, model, tokens, latency, absorbed errors)    Agent ──LEARNED_FROM──► LearningNode
+```
+
+## Benchmark
+
+`backend/benchmark.py` runs several requirements end to end and writes one row per run (pass rates, retries, time, tokens, absorbed API errors) to a CSV.
+
 ```bash
-curl -X POST http://localhost:8000/api/start \
-  -H "Content-Type: application/json" \
-  -d '{"requirement": "Build a REST API for a student grade management system with endpoints to add students, record grades, and calculate GPA. Use FastAPI and SQLite."}'
+python backend/benchmark.py --count 2
 ```
 
-**Check status:**
-```bash
-curl http://localhost:8000/api/status/{project_id}
-```
+Each run makes dozens of LLM calls, so mind the free-tier quota.
 
-**Download export:**
-```bash
-curl -O http://localhost:8000/api/export/{project_id}
-```
-
-## LLM Configuration
-
-| Agent           | Provider | Model                         | Why |
-|-----------------|----------|-------------------------------|-----|
-| Planning        | Gemini   | gemini-2.5-flash              | Deep reasoning |
-| Developer       | Gemini   | gemini-2.5-flash              | Code generation |
-| Debugger        | Gemini   | gemini-2.5-flash              | Root-cause analysis |
-| Testing         | Groq     | llama-4-scout-17b-16e-instruct| Speed + volume |
-| Evaluator       | Groq     | llama-4-scout-17b-16e-instruct| Speed + volume |
-| Fallback (all)  | OpenRouter| meta-llama/llama-4-scout:free | Rate limit backup |
-
-## Neo4j Graph Schema
+## Repository layout
 
 ```
-Project ──HAS_FEATURE──► Feature ──HAS_TASK──► Task ──HAS_SUBTASK──► SubTask
-                                                 │
-                                          ◄DEPENDS_ON
-                                                 │
-                                       CodeModule ──PRODUCED_BY──► Task
-                                          │
-                                     TestResult ──VALIDATES──► CodeModule
-                                          │
-                            Bug ──FAILED_BY──► CodeModule
-                             │
-                           Fix ──RESOLVES──► Bug
-                                          │
-                          EvaluationResult ──EVALUATES──► CodeModule
-                                          │
-                         LearningNode ──PRODUCED_BY──► Task
-                              │
-                         Agent ──LEARNED_FROM──► LearningNode
+backend/
+  agents/            planning, developer, testing, evaluator, debugging, correction engine, scheduler
+  graph/             Neo4j client (all Cypher)
+  memory/            ChromaDB memory and context retrieval
+  llm_client.py      the only place LLMs are called: key and model rotation, tracing hooks
+  plan_editor.py     plan review API
+  preview_manager.py live preview of generated apps
+  project_runtime.py dependency scan, package.json, npm install
+  run_report.py      run report and markdown export
+  tracing.py         optional LangSmith integration
+  benchmark.py       benchmark runner
+frontend/src/        React dashboard (components for each panel)
+desktop/             Electron desktop app
+docs/                screenshots and diagrams
+docker-compose.yml   neo4j, chromadb, backend, frontend
 ```
 
-## File Structure
+## Generated output
 
-```
-autonomousdev/
-├── backend/
-│   ├── agents/
-│   │   ├── planning_agent.py      # Gemini — requirement decomposition
-│   │   ├── developer_agent.py     # Gemini — code generation
-│   │   ├── testing_agent.py       # Groq   — test gen + execution
-│   │   ├── debugging_agent.py     # Gemini — root cause + fix
-│   │   ├── evaluator_agent.py     # Groq   — quality scoring
-│   │   ├── correction_engine.py   # Self-correction loop orchestrator
-│   │   └── scheduler.py           # Task polling + routing
-│   ├── graph/
-│   │   └── neo4j_client.py        # All Cypher queries
-│   ├── memory/
-│   │   ├── memory_store.py        # ChromaDB + sentence-transformers
-│   │   └── context_retriever.py   # Similar context finder
-│   ├── llm_client.py              # Shared LLM client (NEVER bypass this)
-│   ├── main.py                    # FastAPI app + all routes
-│   └── requirements.txt
-├── frontend/
-│   └── src/
-│       ├── App.jsx                # Main dashboard
-│       └── components/
-│           ├── TaskGraph.jsx      # Force graph visualization
-│           ├── AgentFeed.jsx      # Live WebSocket feed
-│           ├── CodeViewer.jsx     # Syntax-highlighted code
-│           ├── EvalChart.jsx      # Score charts
-│           └── InsightsPanel.jsx  # Neo4j analytics
-├── docker-compose.yml
-├── PHASE_1_SUMMARY.md ... PHASE_5_SUMMARY.md
-└── .env.example
-```
-
-## Generated Output
-
-The ZIP export (`GET /api/export/{project_id}`) contains:
-- `src/` — all generated Python source files
-- `requirements.txt` — auto-detected dependencies
-- `README.md` — project overview generated by Gemini
-- `test_report.json` — full pytest results
-- `EVALUATION_REPORT.md` — per-module quality scores
-
----
-
-Built with ❤️ by **Codonova** — Autonomous AI Software Development
+The ZIP export (`GET /api/export/{id}`) contains the complete runnable project (`server.js`, `lib/`, `public/`, `tests/`, `package.json`), a `README.md`, `RUN_REPORT.md`, `EVALUATION_REPORT.md` and `test_report.json`.

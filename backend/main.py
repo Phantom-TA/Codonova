@@ -59,6 +59,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from plan_editor import router as plan_editor_router, ensure_executable
+import preview_manager
+import run_report
+app.include_router(plan_editor_router)
+app.include_router(preview_manager.router)
+app.include_router(run_report.router)
+
 GENERATED_CODE_DIR = Path(os.getenv("GENERATED_CODE_DIR", "./generated_code"))
 GENERATED_CODE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -125,6 +132,7 @@ async def broadcast_event(message: str):
 @app.on_event("startup")
 async def startup_event():
     """Initialize Neo4j schema and agent nodes on startup."""
+    preview_manager.configure(broadcast_event, asyncio.get_running_loop())
     try:
         import graph.neo4j_client as neo4j_client
 
@@ -143,6 +151,7 @@ async def startup_event():
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    preview_manager.stop_all()
     import graph.neo4j_client as neo4j_client
     neo4j_client.close_driver()
     logger.info("Neo4j driver closed.")
@@ -179,6 +188,13 @@ async def health_check():
     }
 
 
+@app.get("/api/tracing")
+async def tracing_status():
+    """LangSmith tracing status + link to the traces page (used by the dashboard)."""
+    import tracing
+    return tracing.status()
+
+
 @app.post("/api/plan")
 async def create_plan(request: PlanRequest):
     """
@@ -191,7 +207,7 @@ async def create_plan(request: PlanRequest):
     try:
         from agents.planning_agent import PlanningAgent
         planner = PlanningAgent()
-        result = planner.run(request.requirement)
+        result = await asyncio.to_thread(planner.run, request.requirement)
         return {
             "project_id": result["project_id"],
             "title": result["title"],
@@ -223,10 +239,12 @@ async def start_pipeline(request: StartRequest, background_tasks: BackgroundTask
         # Step 1: Plan
         from agents.planning_agent import PlanningAgent
         planner = PlanningAgent()
-        plan_result = planner.run(request.requirement)
+        plan_result = await asyncio.to_thread(planner.run, request.requirement)
         project_id = plan_result["project_id"]
 
         # Step 2: Launch scheduler in background
+        from graph.neo4j_client import query_graph as _qg
+        _qg("MATCH (p:Project {id: $pid}) SET p.status = 'RUNNING'", {"pid": project_id})
         background_tasks.add_task(
             _run_scheduler_background,
             project_id=project_id,
@@ -263,7 +281,10 @@ async def execute_pipeline(project_id: str, background_tasks: BackgroundTasks):
         res = query_graph("MATCH (p:Project {id: $pid}) RETURN p.status AS status", {"pid": project_id})
         if not res:
             raise HTTPException(status_code=404, detail="Project not found")
-            
+        if res[0].get("status") == "RUNNING":
+            raise HTTPException(status_code=409, detail="Pipeline is already running for this project")
+        ensure_executable(project_id)
+
         # Update status to RUNNING
         query_graph("MATCH (p:Project {id: $pid}) SET p.status = 'RUNNING'", {"pid": project_id})
         
@@ -277,6 +298,8 @@ async def execute_pipeline(project_id: str, background_tasks: BackgroundTasks):
         }))
         
         return {"status": "RUNNING", "project_id": project_id}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Pipeline execution failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -592,8 +615,7 @@ async def get_evaluations(project_id: str):
 async def export_project(project_id: str):
     """
     Export project as a ZIP file containing:
-    - All generated source code
-    - requirements.txt
+    - The complete generated project (server.js, public/, package.json, tests)
     - README.md (auto-generated)
     - test_report.json
     - EVALUATION_REPORT.md
@@ -633,19 +655,25 @@ async def export_project(project_id: str):
         # Build ZIP in memory
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            # Source files
-            for f in files:
-                fp = f.get("filepath", "")
-                fn = f.get("filename", "unknown.py")
-                if fp and Path(fp).exists():
-                    code = Path(fp).read_text(encoding="utf-8", errors="replace")
-                    zf.writestr(f"src/{fn}", code)
-
-            # requirements.txt
-            zf.writestr("requirements.txt", _generate_requirements(files))
+            # The whole generated project (runnable as-is), without installed
+            # packages or archived retry versions.
+            from project_runtime import ensure_package_json, walk_files, project_dir as _project_dir
+            proj_dir = _project_dir(project_id)
+            if proj_dir.exists():
+                ensure_package_json(proj_dir)
+                for path in sorted(walk_files(proj_dir)):
+                    if path.name.startswith(".report_") or path.suffix == ".bak":
+                        continue
+                    zf.write(path, path.relative_to(proj_dir).as_posix())
 
             # README.md
             zf.writestr("README.md", _generate_readme(title, description, files, evaluations))
+
+            # RUN_REPORT.md: real metrics of this run
+            try:
+                zf.writestr("RUN_REPORT.md", run_report.render_markdown(run_report.build_report(project_id)))
+            except Exception as exc:
+                logger.warning(f"Could not add run report to export: {exc}")
 
             # test_report.json
             zf.writestr("test_report.json", json.dumps(tests, indent=2))
@@ -712,7 +740,7 @@ def _generate_readme(title: str, description: str, files: list, evaluations: lis
 This project was autonomously generated by Codonova — an AI-powered software development system.
 
 ## Generated Files
-{chr(10).join(f'- `{f.get("filename")}`: {f.get("filename", "").split("/")[-1]}' for f in files if f.get("filename"))}
+{chr(10).join(f'- `{f.get("filename")}`' for f in files if f.get("filename"))}
 
 ## Evaluation Summary
 - **Average Score**: {avg_score:.1f}/10
@@ -720,14 +748,17 @@ This project was autonomously generated by Codonova — an AI-powered software d
 - **Evaluated**: {len(evaluations)} modules
 
 ## Running the Project
+Requires Node.js 18 or newer.
 ```bash
-pip install -r requirements.txt
-python main.py
+npm install
+npm start
 ```
+Then open http://localhost:4000 (set the `PORT` environment variable to use another port).
+Run the generated tests with `npm test`.
 
 ## Generated by
 [Codonova](https://github.com/codonova) — Autonomous Software Development System
-Powered by: Gemini 2.5 Flash, Groq Llama 4 Scout, Neo4j, ChromaDB
+Powered by: Gemini, Neo4j, ChromaDB
 """
 
 

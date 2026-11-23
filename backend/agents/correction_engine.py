@@ -11,6 +11,7 @@ Integrates with WebSocket event emitter for real-time updates.
 """
 
 import json
+import asyncio
 import logging
 from datetime import datetime
 from .developer_agent import DeveloperAgent
@@ -19,9 +20,10 @@ from .evaluator_agent import EvaluatorAgent
 from .debugging_agent import DebuggingAgent
 from graph.neo4j_client import (
     query_graph, block_dependent_tasks, create_node, link_nodes,
-    mark_task_status
+    mark_task_status, update_agent_profile
 )
 from memory.memory_store import MemoryStore
+from tracing import traceable, annotate
 
 logger = logging.getLogger("correction_engine")
 
@@ -43,6 +45,7 @@ class CorrectionEngine:
         self.memory = MemoryStore()
         self.ws_broadcaster = ws_broadcaster  # Async callable for WebSocket events
 
+    @traceable(name="CorrectionEngine.run")
     async def run(self, task_node: dict) -> dict:
         """
         Execute a CODE task with full self-correction loop.
@@ -51,6 +54,9 @@ class CorrectionEngine:
             dict with final status, score, attempts used
         """
         task_id = task_node["id"]
+        annotate(metadata={"task_id": task_id, "task_title": task_node.get("title", ""),
+                           "project_id": task_node.get("project_id", "")},
+                 tags=["correction-loop"])
         logger.info(f"CorrectionEngine starting for task: {task_id}")
 
         await self._emit("task_started", task_id=task_id, agent="DeveloperAgent")
@@ -65,10 +71,10 @@ class CorrectionEngine:
 
             # 1. Generate/regenerate code
             if attempts == 1:
-                dev_result = self.dev_agent.run(task_node)
+                dev_result = await asyncio.to_thread(self.dev_agent.run, task_node)
             else:
-                dev_result = self.dev_agent.run_with_critique(
-                    task_node, last_critique, version=attempts
+                dev_result = await asyncio.to_thread(
+                    self.dev_agent.run_with_critique, task_node, last_critique, version=attempts
                 )
 
             if not dev_result.get("success"):
@@ -78,11 +84,11 @@ class CorrectionEngine:
 
             # 2. Run tests
             await self._emit("task_started", task_id=task_id, agent="TestingAgent")
-            test_result = self.test_agent.run(task_node)
+            test_result = await asyncio.to_thread(self.test_agent.run, task_node)
 
             # 3. Evaluate quality
             await self._emit("task_started", task_id=task_id, agent="EvaluatorAgent")
-            eval_result = self.eval_agent.run(task_node)
+            eval_result = await asyncio.to_thread(self.eval_agent.run, task_node)
             score = eval_result.get("score", 0)
             last_eval = eval_result
 
@@ -96,18 +102,20 @@ class CorrectionEngine:
 
             logger.info(f"Attempt {attempts}: score={score}, passed={score >= PASS_SCORE}")
 
+            # The developer's quality is the evaluator's score for what it wrote (one entry per attempt).
+            update_agent_profile("DeveloperAgent", score=score, task_type="CODE",
+                                 retries=0 if attempts == 1 else 1)
+
             if score >= PASS_SCORE:
                 # ✅ Success — store in memory
-                self.memory.store_success(
+                await asyncio.to_thread(
+                    self.memory.store_success,
                     task_description=task_node.get("description", "") + " " + task_node.get("title", ""),
                     code=self._get_generated_code(dev_result.get("filename", "")),
                     score=score,
                     task_id=task_id,
                     module_id=dev_result.get("code_module_id", ""),
                 )
-                # Record actual retry count in Neo4j
-                from graph.neo4j_client import update_agent_profile
-                update_agent_profile("DeveloperAgent", score=score, task_type="CODE", retries=attempts - 1)
                 mark_task_status(task_id, "DONE")
                 await self._emit("task_done", task_id=task_id, score=score, agent="Pipeline")
                 return {
@@ -126,7 +134,7 @@ class CorrectionEngine:
             # If tests failed, also run debugger
             if not test_result.get("success"):
                 await self._emit("task_started", task_id=task_id, agent="DebuggingAgent")
-                debug_result = self.debug_agent.run(task_node)
+                debug_result = await asyncio.to_thread(self.debug_agent.run, task_node)
                 critique_parts.append(
                     f"Bug found: {debug_result.get('root_cause', '')}. "
                     f"Fix applied: {', '.join(debug_result.get('changes', []))}"

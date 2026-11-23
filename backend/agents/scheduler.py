@@ -20,6 +20,7 @@ from agents.correction_engine import CorrectionEngine
 from agents.testing_agent import TestingAgent
 from agents.debugging_agent import DebuggingAgent
 from llm_client import set_active_project
+from tracing import traceable, annotate
 
 logger = logging.getLogger("scheduler")
 
@@ -80,12 +81,16 @@ class Scheduler:
         dispatch_tasks = [self._dispatch(task) for task in tasks_to_run]
         await asyncio.gather(*dispatch_tasks, return_exceptions=True)
 
+    @traceable(name="pipeline_task")
     async def _dispatch(self, task_node: dict):
         """Route a single task to the appropriate agent."""
         task_id = task_node["id"]
         task_type = task_node.get("type", "CODE")
         title = task_node.get("title", "Unknown")
 
+        annotate(metadata={"project_id": self.project_id, "task_id": task_id,
+                           "task_title": title, "task_type": task_type},
+                 tags=[f"project:{self.project_id[:8]}", task_type])
         logger.info(f"Dispatching task [{task_type}]: {title}")
 
         # Mark as in-progress
@@ -105,12 +110,12 @@ class Scheduler:
             if task_type == "CODE":
                 result = await self.correction_engine.run(task_node)
             elif task_type == "TEST":
-                result = self.test_agent.run(task_node)
+                result = await asyncio.to_thread(self.test_agent.run, task_node)
                 # Determine task completion
                 status = "DONE" if result.get("success") else "FAILED"
                 mark_task_status(task_id, status)
             elif task_type == "DEBUG":
-                result = self.debug_agent.run(task_node)
+                result = await asyncio.to_thread(self.debug_agent.run, task_node)
                 # After debugging, put the task back for re-testing
                 if result.get("needs_retest"):
                     # Find the original CODE task and reset it

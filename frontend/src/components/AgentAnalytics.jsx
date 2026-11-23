@@ -155,7 +155,7 @@ function AgentScoreRow({ agent, stats, projectId }) {
         {/* Quality score from Neo4j */}
         <div className="text-right">
           <div className="font-bold" style={{ color: scoreColor }}>
-            {hasRun ? `${neo4jScore?.toFixed(1) || '0.0'}/10` : 'N/A'}
+            {hasRun && neo4jScore != null ? `${neo4jScore.toFixed(1)}/10` : '—'}
           </div>
           <div className="text-slate-500">quality</div>
         </div>

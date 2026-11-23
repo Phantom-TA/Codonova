@@ -8,6 +8,9 @@ python-multipart==0.0.9
 # LLM Providers
 openai==1.30.0
 
+# Observability (optional LangSmith tracing)
+langsmith>=0.1.99
+
 # Environment & Config
 python-dotenv==1.0.1
 

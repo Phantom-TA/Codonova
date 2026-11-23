@@ -15,6 +15,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from llm_client import llm_call, parse_json_response, set_active_agent
+from tracing import traceable
 from graph.neo4j_client import (
     create_node, link_nodes, query_graph, get_node, upsert_agent, update_agent_profile
 )
@@ -52,6 +53,7 @@ class TestingAgent:
         upsert_agent(self.AGENT_NAME)
 
 
+    @traceable(name="TestingAgent.run")
     def run(self, task_node: dict) -> dict:
         """
         Generate and run tests for the CodeModule associated with this task.
@@ -92,7 +94,7 @@ class TestingAgent:
             logger.info(f"Skipping Jest test for frontend file: {filepath}")
             from graph.neo4j_client import mark_task_status
             mark_task_status(task_id, "DONE")
-            update_agent_profile(self.AGENT_NAME, score=8.5, task_type="TEST", retries=0)
+            update_agent_profile(self.AGENT_NAME, score=None, task_type="TEST", retries=0)  # nothing was tested
             return {
                 "success": True,
                 "task_id": task_id,
@@ -118,9 +120,11 @@ class TestingAgent:
         # Store in Neo4j
         self._store_results(task_id, code_module["id"], test_result, run_results, test_filepath)
 
+        # Real score: share of the generated tests that passed, on a 0-10 scale.
+        executed = run_results["passed"] + run_results["failed"]
         update_agent_profile(
             self.AGENT_NAME,
-            score=9.0 if run_results["all_passed"] else (8.5 if run_results.get("skipped") else 4.0),
+            score=round(10 * run_results["passed"] / executed, 1) if executed else 0.0,
             task_type="TEST",
             retries=0,
         )
@@ -184,15 +188,20 @@ class TestingAgent:
         return test_filepath
 
     def _ensure_npm_env(self, project_id: str):
-        project_dir = GENERATED_CODE_DIR / project_id
-        pkg_json = project_dir / "package.json"
-        if not pkg_json.exists():
-            pkg_json.write_text('{"name": "codonova-project", "scripts": {"test": "jest"}}')
+        """Install the packages the generated code and tests import (express, supertest, ...)."""
+        from project_runtime import npm_install, project_dir
+        ok, msg = npm_install(project_dir(project_id), log=lambda line: logger.debug(f"npm: {line}"))
+        if not ok:
+            logger.warning(f"npm install failed for project {project_id}: {msg}")
 
+    @traceable(name="jest_run", run_type="tool")
     def _run_tests(self, test_filepath: Path, project_id: str) -> dict:
         """Execute jest and parse results."""
+        # Absolute paths: jest runs with cwd=project_dir, so a relative GENERATED_CODE_DIR
+        # would be resolved a second time and the JSON report could never be written.
+        test_filepath = test_filepath.resolve()
         report_file = test_filepath.parent / f".report_{test_filepath.stem}.json"
-        project_dir = GENERATED_CODE_DIR / project_id
+        project_dir = (GENERATED_CODE_DIR / project_id).resolve()
 
         # Use 'npx --yes jest' to bypass the install prompt if jest is missing locally
         cmd = [

@@ -26,6 +26,8 @@ export default function TaskGraph({ projectId, onNodeClick }) {
   const [statusCounts, setStatusCounts] = useState({})
 
   const fgRef          = useRef()
+  const wrapRef        = useRef()
+  const [size, setSize]  = useState({ w: 0, h: 0 }) // panel size: the canvas must not use the window size
   const liveStatus     = useRef({})   // { [nodeId]: status } — updated without re-render
   const nodePositions  = useRef({})
   const graphDataRef   = useRef({ nodes: [], links: [] })
@@ -190,6 +192,18 @@ export default function TaskGraph({ projectId, onNodeClick }) {
     }
   }, [selectedNode])
 
+  // Keep the canvas exactly as big as its panel (react-force-graph defaults to the window size,
+  // which pushed nodes outside the visible area).
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight })
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const inProgressNodes = graphData.nodes.filter(n =>
     (liveStatus.current[n.id] || n.status) === 'IN_PROGRESS'
   )
@@ -198,7 +212,7 @@ export default function TaskGraph({ projectId, onNodeClick }) {
   )
 
   return (
-    <div className="relative w-full h-full rounded-xl overflow-hidden">
+    <div ref={wrapRef} className="relative w-full h-full rounded-xl overflow-hidden">
 
       {/* Top bar */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 pointer-events-none">
@@ -240,6 +254,8 @@ export default function TaskGraph({ projectId, onNodeClick }) {
           linkDirectionalArrowRelPos={1}
           linkWidth={0.8}
           backgroundColor="transparent"
+          width={size.w || undefined}
+          height={size.h || undefined}
           onNodeClick={handleNodeClick}
           onNodeDragEnd={handleNodeDragEnd}
           onNodeRightClick={handleNodeRightClick}

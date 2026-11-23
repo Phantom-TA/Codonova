@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import TaskGraph from './components/TaskGraph.jsx'
+import PlanReview from './components/PlanReview.jsx'
+import LivePreview from './components/LivePreview.jsx'
+import RunReport from './components/RunReport.jsx'
 import AgentFeed from './components/AgentFeed.jsx'
 import CodeViewer from './components/CodeViewer.jsx'
 import EvalChart from './components/EvalChart.jsx'
@@ -9,8 +12,11 @@ import AgentAnalytics from './components/AgentAnalytics.jsx'
 // ─── Panel Definitions ────────────────────────────────────────────────────────
 const PANELS = [
   { id: 'graph',     label: 'Task Graph',       component: TaskGraph },
+  { id: 'plan',      label: 'Plan Review',      component: PlanReview },
   { id: 'feed',      label: 'Agent Feed',       component: AgentFeed },
   { id: 'code',      label: 'Code Viewer',      component: CodeViewer },
+  { id: 'preview',   label: 'Live Preview',     component: LivePreview },
+  { id: 'report',    label: 'Run Report',       component: RunReport },
   { id: 'analytics', label: 'Agent Analytics',  component: AgentAnalytics },
   { id: 'eval',      label: 'Evaluations',      component: EvalChart },
   { id: 'insights',  label: 'Insights',         component: InsightsPanel },
@@ -26,14 +32,18 @@ const STATUS_COLOR = {
 }
 
 // ─── Project Status Bar ────────────────────────────────────────────────────
-function ProjectStatusBar({ status, projectId }) {
+function ProjectStatusBar({ status, projectId, onRunApp }) {
   if (!status) return null
   const pct = status.progress_pct || 0
   const color = STATUS_COLOR[status.status] || '#64748b'
 
   const handleExecute = async () => {
     try {
-      await fetch(`/api/execute/${projectId}`, { method: 'POST' })
+      const res = await fetch(`/api/execute/${projectId}`, { method: 'POST' })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        alert('Could not start execution: ' + (err.detail || res.status))
+      }
     } catch (e) {
       alert('Failed to start execution: ' + e.message)
     }
@@ -61,6 +71,14 @@ function ProjectStatusBar({ status, projectId }) {
           className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold whitespace-nowrap transition-all shadow-[0_0_15px_rgba(139,92,246,0.3)] flex items-center gap-2 flex-shrink-0"
         >
           🚀 Approve Plan & Implement
+        </button>
+      )}
+      {String(status.status || '').startsWith('COMPLETED') && (
+        <button
+          onClick={onRunApp}
+          className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 flex-shrink-0"
+        >
+          ▶ Run App
         </button>
       )}
       <div className="flex gap-3 text-xs text-slate-500 flex-shrink-0">
@@ -97,7 +115,7 @@ function PipelineLauncher({ onLaunched, loading, setLoading }) {
       }
       const data = await res.json()
       setResult(data)
-      onLaunched(data.project_id)
+      onLaunched(data.project_id, data)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -211,9 +229,9 @@ function ProjectSelector({ activeProjectId, onSelect }) {
   if (projects.length === 0) return null
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
       <div className="text-xs text-slate-500 px-1">Recent Projects</div>
-      {projects.slice(0, 6).map(p => (
+      {projects.slice(0, 30).map(p => (
         <button
           key={p.id}
           onClick={() => onSelect(p.id)}
@@ -242,6 +260,42 @@ export default function App() {
   const [projectStatus, setProjectStatus] = useState(null)
   const [loading, setLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [tracing, setTracing] = useState(null) // LangSmith status: { enabled, project, url }
+  const [focusTask, setFocusTask] = useState(null) // task to open in Plan Review: { id, nonce }
+
+  // LangSmith tracing status (optional feature)
+  useEffect(() => {
+    fetch('/api/tracing')
+      .then(r => r.json())
+      .then(setTracing)
+      .catch(() => setTracing(null))
+  }, [])
+
+  // Native desktop notifications (only inside the Electron app, where window.codonova exists)
+  useEffect(() => {
+    if (!window.codonova?.isDesktop) return
+    let ws
+    let timer
+    let closed = false
+    const connect = () => {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+      ws = new WebSocket(`${proto}://${window.location.host}/ws/progress`)
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data)
+          if (msg.event === 'project_complete') {
+            window.codonova.notify(
+              'Project complete',
+              `Project ${String(msg.project_id || '').slice(0, 8)} finished. Open Live Preview to run it.`
+            )
+          }
+        } catch { /* ignore non-JSON frames */ }
+      }
+      ws.onclose = () => { if (!closed) timer = setTimeout(connect, 3000) }
+    }
+    connect()
+    return () => { closed = true; clearTimeout(timer); if (ws) ws.close() }
+  }, [])
 
   // Fetch project status periodically
   useEffect(() => {
@@ -279,9 +333,17 @@ export default function App() {
   const ActivePanel = PANELS.find(p => p.id === activePanel)?.component
   const panelProps = {
     projectId,
+    focusTask,
+    projectState: projectStatus?.status,
+    onApproved: () => setActivePanel('graph'),
     onNodeClick: (node) => {
       // Clicking a code module node switches to code viewer
       if (node.type === 'CodeModule') setActivePanel('code')
+      // Clicking a task while the plan is still editable opens it in Plan Review
+      if (node.type === 'Task' && projectStatus?.status === 'PLANNED') {
+        setFocusTask({ id: node.id, nonce: Date.now() })
+        setActivePanel('plan')
+      }
     },
   }
 
@@ -375,6 +437,20 @@ export default function App() {
             >
               Open Neo4j Browser ↗
             </a>
+
+            {/* LangSmith traces link (only when tracing is enabled) */}
+            {tracing?.enabled && (
+              <a
+                href={tracing.url || 'https://smith.langchain.com/'}
+                target="_blank"
+                rel="noopener noreferrer"
+                id="btn-langsmith"
+                className="block w-full py-2 rounded-lg text-xs text-emerald-400 hover:text-emerald-300
+                           bg-emerald-500/10 hover:bg-emerald-500/15 transition-all text-center"
+              >
+                Open LangSmith Traces ↗
+              </a>
+            )}
           </div>
         )}
       </aside>
@@ -412,7 +488,14 @@ export default function App() {
           <div className="flex-1 flex flex-col gap-4 overflow-hidden">
             {/* Project status bar */}
             {projectStatus && (
-              <ProjectStatusBar status={projectStatus} projectId={projectId} />
+              <ProjectStatusBar
+                status={projectStatus}
+                projectId={projectId}
+                onRunApp={() => {
+                  setActivePanel('preview')
+                  fetch(`/api/preview/${projectId}/start`, { method: 'POST' }).catch(() => {})
+                }}
+              />
             )}
 
             {/* Active panel */}
@@ -424,7 +507,11 @@ export default function App() {
           {/* Right sidebar: launcher */}
           <div className="w-80 flex-shrink-0 flex flex-col gap-4">
             <PipelineLauncher
-              onLaunched={setProjectId}
+              onLaunched={(id, data) => {
+                setProjectId(id)
+                // Plan-only runs go straight to the review screen
+                if (data && !data.status) setActivePanel('plan')
+              }}
               loading={loading}
               setLoading={setLoading}
             />
